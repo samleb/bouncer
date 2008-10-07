@@ -1,7 +1,7 @@
 /**
  *  Bouncer
  *  Copyright (c) 2008 Samuel Lebeau, Xilinus
- * 
+ *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
  * files (the "Software"), to deal in the Software without
@@ -10,10 +10,10 @@
  * copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following
  * conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
  * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -25,12 +25,12 @@
 **/
 
 var Bouncer = (function() {
-  
+
   var Combinators,
       Rules,
       Pseudos,
       Cache = { };
-  
+
   Combinators = {
     Patterns: {
       child:      /^\s*>\s*/,
@@ -38,7 +38,7 @@ var Bouncer = (function() {
       later:      /^\s*~\s*/,
       descendant: /^\s+/
     },
-    
+
     Handlers: {
       // A B
       descendant: function(matcher) {
@@ -75,7 +75,7 @@ var Bouncer = (function() {
       }
     }
   };
-  
+
   Rules = {
     Patterns: {
       id:        /^#([\w\-\*]+)(?:\b|$)/,
@@ -83,7 +83,7 @@ var Bouncer = (function() {
       className: /^\.([\w\-\*]+)(?:\b|$)/,
       pseudo:    /^:([\w-]+)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/
     },
-    
+
     Handlers: {
       id: function(match) {
         var id = match[1];
@@ -115,7 +115,7 @@ var Bouncer = (function() {
       }
     }
   };
-  
+
   Pseudos = {
     not: function(expression) {
       var matcher = assembleMatcher(expression);
@@ -124,17 +124,17 @@ var Bouncer = (function() {
       };
     }
   };
-  
+
   function True() {
     return true;
   }
-  
+
   function assembleMatcher(expression) {
     var matcher, patterns, handlers, rest, match;
-    
+
     while (expression && rest !== expression && (/\S/).test(expression)) {
       rest = expression;
-      
+
       patterns = Combinators.Patterns, handlers = Combinators.Handlers;
       for (var name in patterns) {
         if ((match = expression.match(patterns[name]))) {
@@ -143,7 +143,7 @@ var Bouncer = (function() {
           break;
         }
       }
-      
+
       patterns = Rules.Patterns, handlers = Rules.Handlers;
       for (var name in patterns) {
         if ((match = expression.match(patterns[name]))) {
@@ -153,10 +153,10 @@ var Bouncer = (function() {
         }
       }
     }
-    
+
     return matcher;
   }
-  
+
   function combineMatchers(matcher1, matcher2) {
     if (!matcher2) return matcher1;
     return function(element) {
@@ -164,24 +164,19 @@ var Bouncer = (function() {
       return result && matcher2(result === true ? element : result);
     };
   }
-  
-  window.Cache = Cache;
-  window.Pseudos = Pseudos;
-  
+
   return {
     match: function(element, expression) {
       if (!(expression in Cache)) {
         Cache[expression] = assembleMatcher(expression);
-        if (expression == ':test')
-          console.debug(Cache[expression]);
       }
       return Cache[expression](element);
     },
-    
+
     registerPseudoWithClosure: function(name, predicateClosure) {
       Pseudos[name] = predicateClosure;
     },
-    
+
     registerPseudo: function(name, predicate) {
       Pseudos[name] = function() {
         return predicate;
