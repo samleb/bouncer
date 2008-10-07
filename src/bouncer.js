@@ -96,7 +96,7 @@ var Bouncer = (function() {
       },
       tagName: function(match) {
         var tagName = match[1];
-        if (tagName === '*') return True;
+        if (tagName === "*") return True;
         tagName = tagName.toUpperCase();
         return function(e) {
           return e.tagName.toUpperCase() === tagName;
@@ -111,7 +111,7 @@ var Bouncer = (function() {
       pseudo: function(match) {
         var pseudo = match[1];
         if (!(pseudo in Pseudos)) {
-          throw 'Unsupported pseudo selector: ' + pseudo;
+          throw "Unsupported pseudo selector: " + pseudo;
         } else {
           pseudo = Pseudos[pseudo];
           return pseudo.hasArgument ? pseudo(match[2]) : pseudo;
@@ -128,8 +128,8 @@ var Bouncer = (function() {
             operator = match[2],
             value    = match[5] || match[6];
         
-        if (operator == '~=') {
-          value = ' ' + value + ' ';
+        if (operator == "~=") {
+          value = " " + value + " ";
         }
         operator = Attributes[operator];
         
@@ -146,7 +146,7 @@ var Bouncer = (function() {
     '^=': function(v, a) { return v.indexOf(a) == 0; },
     '$=': function(v, a) { throw "operator $= not implemented yet"; },
     '*=': function(v, a) { return v.indexOf(a) >= 0; },
-    '~=': function(v, a) { return (' ' + a + ' ').indexOf(v) >= 0; }
+    '~=': function(v, a) { return (" " + a + " ").indexOf(v) >= 0; }
   };
 
   Pseudos = {
@@ -209,10 +209,10 @@ var Bouncer = (function() {
       }
       
       if (!found) {
-        throw 'Unkown CSS expression: ' + expression;
+        throw "Unkown CSS expression: " + expression;
       }
       
-      expression = expression.replace(match[0], '');
+      expression = expression.replace(match[0], "");
     }
 
     return matcher;
