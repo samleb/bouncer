@@ -3,70 +3,57 @@
 //  Bouncer
 //  
 //  Created by Samuel Lebeau on 2008-08-27.
-//  Copyright 2008 xilinus. All rights reserved.
+//  Copyright 2008 Samuel Lebeau. All rights reserved.
 // 
 
 var Bouncer = (function() {
   
-  var Combinators, Rules, Pseudos, Cache = { };
+  var Combinators,
+      Rules,
+      Pseudos,
+      Cache = { };
   
   Combinators = {
     Patterns: {
       child:      /^\s*>\s*/,
       adjacent:   /^\s*\+\s*/,
       later:      /^\s*~\s*/,
-      any:        /^\s*,\s*/,
       descendant: /^\s+/
     },
     
     Handlers: {
-      // lhs rhs
-      descendant: function(lhs, rhs) {
-        return function(element) {
-          if (rhs(element)) {
-            while ((element = element.parentNode) && element.nodeType === 1) {
-              if (lhs(element)) return true;
-            }
-          }
-          return false;
-        }
-      },
-      // lhs > rhs
-      child: function(lhs, rhs) {
-        return function(element) {
-          if (rhs(element) && (element = element.parentNode) && element.nodeType === 1) {
-            return lhs(element);
-          }
-          return false;
-        }
-      },
-      // lhs + rhs
-      adjacent: function(lhs, rhs) {
-        return function(element) {
-          if (rhs(element)) {
-            while ((element = element.previousSibling)) {
-              if (element.nodeType === 1) return lhs(element);
-            }
+      // A B
+      descendant: function(matcher) {
+        return function(e) {
+          while ((e = e.parentNode).nodeType === 1) {
+            if (matcher(e)) return e;
           }
           return false;
         };
       },
-      // lhs ~ rhs
-      later: function(lhs, rhs) {
-        return function(element) {
-          if (rhs(element)) {
-            while ((element = element.previousSibling)) {
-              if (element.nodeType === 1 && lhs(element)) return true;
-            }
+      // A > B
+      child: function(matcher) {
+        return function(e) {
+          return (e = e.parentNode).nodeType === 1 && matcher(e) && e;
+        };
+      },
+      // A + B
+      adjacent: function(matcher) {
+        return function(e) {
+          while ((e = e.previousSibling)) {
+            if (e.nodeType === 1) return matcher(e) && e;
           }
           return false;
-        }
+        };
       },
-      // lhs, rhs
-      any: function(lhs, rhs) {
-        return function(element) {
-          return lhs(element) || rhs(element);
-        }
+      // A ~ B
+      later: function(matcher) {
+        return function(e) {
+          while ((e = e.previousSibling)) {
+            if (e.nodeType === 1 && matcher(e)) return e;
+          }
+          return false;
+        };
       }
     }
   };
@@ -76,46 +63,46 @@ var Bouncer = (function() {
       id:        /^#([\w\-\*]+)(?:\b|$)/,
       tagName:   /^\s*(\*|[\w\-]+)(?:\b|$)?/,
       className: /^\.([\w\-\*]+)(?:\b|$)/,
-      pseudo:    /^:((?:first|last)(?:-child)|not)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/
+      pseudo:    /^:([\w-]+)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/
     },
     
     Handlers: {
       id: function(match) {
         var id = match[1];
-        return function(element) {
-          return element.getAttribute('id') === id;
-        }
+        return function(e) {
+          return e.id === id;
+        };
       },
       tagName: function(match) {
         var tagName = match[1];
         if (tagName === '*') return True;
-        tagName = tagName.toLowerCase();
-        return function(element) {
-          return element.tagName.toLowerCase() === tagName;
+        tagName = tagName.toUpperCase();
+        return function(e) {
+          return e.tagName.toUpperCase() === tagName;
         };
       },
       className: function(match) {
-        var className = ' ' + match[1] + ' ';
-        return function(element) {
-          return (' ' + element.className + ' ').indexOf(className) > -1;
-        }
+        var pattern = new RegExp("(?:^|\\s)" + match[1] + "(?:\\s|$)");
+        return function(e) {
+          return pattern.test(e.className);
+        };
       },
       pseudo: function(match) {
         var pseudo = match[1];
-        if ( !(pseudo in Pseudos) ) {
-          throw  'Unsupported pseudo selector: ' + pseudo;
+        if (!(pseudo in Pseudos)) {
+          throw 'Unsupported pseudo selector: ' + pseudo;
         } else {
-          return Pseudos[pseudo](match);
+          return Pseudos[pseudo](match[2]);
         }
       }
     }
   };
   
   Pseudos = {
-    'not': function(match) {
-      var matcher = compileMatcher(match[2]);
-      return function(element) {
-        return !matcher(element);
+    not: function(expression) {
+      var matcher = assembleMatcher(expression);
+      return function(e) {
+        return !matcher(e);
       };
     }
   };
@@ -124,62 +111,63 @@ var Bouncer = (function() {
     return true;
   }
   
-  function joinPredicates(predicates) {
-    if (predicates.length === 1) {
-      return predicates[0];
-    }
-    return function(element) {
-      var predicate, i = 0;
-      while ((predicate = predicates[i++])) {
-        if (!predicate(element)) return false;
-      }
-      return true;
-    };
-  }
-  
-  function compileMatcher(expression) {
-    var i, l, name, match, predicate, rest, lhs, rhs, predicates = [];
+  function assembleMatcher(expression) {
+    var matcher, patterns, handlers, rest, match;
     
-    var patterns, handlers;
-    
-    while (expression && rest != expression && (/\S/).test(expression)) {
+    while (expression && rest !== expression && (/\S/).test(expression)) {
       rest = expression;
       
-      patterns = Combinators.Patterns;
-      handlers = Combinators.Handlers;
-      
-      for (name in patterns) {
+      patterns = Combinators.Patterns, handlers = Combinators.Handlers;
+      for (var name in patterns) {
         if ((match = expression.match(patterns[name]))) {
-          lhs = joinPredicates(predicates);
-          rhs = compileMatcher(expression.slice(match[0].length));
-          return handlers[name](lhs, rhs);
+          matcher = handlers[name](matcher);
+          expression = expression.replace(match[0], '');
+          break;
         }
       }
       
-      patterns = Rules.Patterns;
-      handlers = Rules.Handlers;
-      
-      for (name in patterns) {
+      patterns = Rules.Patterns, handlers = Rules.Handlers;
+      for (var name in patterns) {
         if ((match = expression.match(patterns[name]))) {
-          predicates.push(handlers[name](match));
+          matcher = combineMatchers(handlers[name](match), matcher);
           expression = expression.replace(match[0], '');
           break;
         }
       }
     }
     
-    return joinPredicates(predicates);
+    return matcher;
   }
+  
+  function combineMatchers(matcher1, matcher2) {
+    if (!matcher2) return matcher1;
+    return function(element) {
+      var result = matcher1(element);
+      return result && matcher2(result === true ? element : result);
+    };
+  }
+  
+  window.Cache = Cache;
+  window.Pseudos = Pseudos;
   
   return {
     match: function(element, expression) {
-      if (expression in Cache) return Cache[expression](element);
-      Cache[expression] = compileMatcher(expression);
+      if (!(expression in Cache)) {
+        Cache[expression] = assembleMatcher(expression);
+        if (expression == ':test')
+          console.debug(Cache[expression]);
+      }
       return Cache[expression](element);
     },
     
-    registerPseudo: function(name, predicateMaker) {
-      Pseudos[name] = predicateMaker;
+    registerPseudoWithClosure: function(name, predicateClosure) {
+      Pseudos[name] = predicateClosure;
+    },
+    
+    registerPseudo: function(name, predicate) {
+      Pseudos[name] = function() {
+        return predicate;
+      };
     }
   };
 })();

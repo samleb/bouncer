@@ -35,13 +35,14 @@
     <!-- HTML Fixtures end -->
     <script type="text/javascript" charset="utf-8">
       
-      Bouncer.up = function(element, expression) {
+      Bouncer.findElement = function(element, expression) {
         while (element) {
-          if (Bouncer.match(element, expression))
+          if (Bouncer.match(element, expression)) {
             return element;
+          }
           element = element.parentNode;
         }
-      }
+      };
       
       function match(elements, expression) {
         return [elements].flatten().all(function(element) {
@@ -79,11 +80,11 @@
           this.assert(match($$('title'), 'html > head > title'));
           this.assert(match('list', 'body > div > ul'));
         },
-        testComma: function() {
-          this.assert(match($$('body'), 'body, head'));
-          this.assert(match($$('head'), 'body, head'));
-          this.assert(!match($$('html'), 'body, head'));
-        },
+        // testComma: function() {
+        //   this.assert(match($$('body'), 'body, head'));
+        //   this.assert(match($$('head'), 'body, head'));
+        //   this.assert(!match($$('html'), 'body, head'));
+        // },
         testNot: function() {
           this.assert(match($$('body'), ':not(head)'));
           this.assert(!match($$('body'), ':not(body)'));
@@ -92,6 +93,28 @@
         },
         testComplexQueries: function() {
           this.assert(match('entry_1', 'body #list > li#entry_1.odd.first'));
+        },
+        testRegisterPseudo: function() {
+          var element;
+          Bouncer.registerPseudo('test', function(e) {
+            element = e;
+            return true;
+          });
+          this.assert(Bouncer.match(document.body, ':test'));
+          this.assertIdentical(document.body, element);
+        },
+        testRegisterPseudoWithClosure: function() {
+          var element, argument;
+          Bouncer.registerPseudoWithClosure('test2', function(arg) {
+            argument = arg;
+            return function(e) {
+              element = e;
+              return true
+            }
+          });
+          this.assert(Bouncer.match(document.body, ':test2(expr)'))
+          this.assertIdentical(document.body, element);
+          this.assertEqual('expr', argument);
         },
         testBenchmarkMatch: function() {
           var body = document.body;
@@ -112,7 +135,7 @@
           }, 500);
           this.info("Bouncer.up");
           this.benchmark(function() {
-            Bouncer.up(list, 'html');
+            Bouncer.findElement(list, 'html');
           }, 500);
           this.info("using Element#up")
           this.benchmark(function() {
@@ -125,7 +148,7 @@
           }, 500);
           this.info("Bouncer up");
           this.benchmark(function() {
-            Bouncer.up(list, 'html');
+            Bouncer.findElement(list, 'html');
           }, 500);
         }
       });
