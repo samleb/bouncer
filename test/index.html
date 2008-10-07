@@ -17,7 +17,7 @@
     
     <!-- HTML Fixtures start -->
     <div id="fixtures">
-      <p>
+      <p id="paragraph" xml:lang="en-US">
         Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor 
         incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
         exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute 
@@ -94,6 +94,32 @@
         testComplexQueries: function() {
           this.assert(match('entry_1', 'body #list > li#entry_1.odd.first'));
         },
+        testAttributePresence: function() {
+          this.assert(match('list', 'ul[id]'));
+          this.assert(match('paragraph', 'p[xml:lang]'));
+        },
+        testAttributes: function() {
+          this.assert(match('paragraph', '[xml:lang=en-US]'));
+          this.assert(match('paragraph', '[xml:lang="en-US"]'));
+          this.assert(match('paragraph', "[xml:lang='en-US']"));
+          this.assert(!match('paragraph', "[xml:lang=en]"));
+          this.assert(!match('paragraph', "[xml:lang=US]"));
+          this.assert(!match('paragraph', "[xml:lang='']"));
+          
+          this.assert(match('paragraph', '[xml:lang!=fr-FR]'));
+          this.assert(!match('paragraph', '[xml:lang!=en-US]'));
+          
+          this.assert(match('paragraph', '[xml:lang^=e]'));
+          this.assert(!match('paragraph', '[xml:lang!=f]'));
+          
+          this.assert(match('paragraph', '[xml:lang$=S]'));
+          this.assert(!match('paragraph', '[xml:lang$=R]'));
+          
+          this.assert(match('entry_1', '[class~=odd]'));
+          this.assert(match('entry_1', '[class~="first"]'));
+          this.assert(!match('entry_1', '[class~=even]'));
+          
+        },
         testRegisterPseudo: function() {
           var element;
           Bouncer.registerPseudo('test', function(e) {
@@ -103,9 +129,9 @@
           this.assert(Bouncer.match(document.body, ':test'));
           this.assertIdentical(document.body, element);
         },
-        testRegisterPseudoWithClosure: function() {
+        testRegisterPseudoWithArgument: function() {
           var element, argument;
-          Bouncer.registerPseudoWithClosure('test2', function(arg) {
+          Bouncer.registerPseudoWithArgument('test2', function(arg) {
             argument = arg;
             return function(e) {
               element = e;

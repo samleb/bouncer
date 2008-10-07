@@ -28,6 +28,7 @@ var Bouncer = (function() {
 
   var Combinators,
       Rules,
+      Attributes,
       Pseudos,
       Cache = { };
 
@@ -81,7 +82,9 @@ var Bouncer = (function() {
       id:        /^#([\w\-\*]+)(?:\b|$)/,
       tagName:   /^\s*(\*|[\w\-]+)(?:\b|$)?/,
       className: /^\.([\w\-\*]+)(?:\b|$)/,
-      pseudo:    /^:([\w-]+)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/
+      pseudo:    /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/,
+      attrPresence: /^\[((?:[\w]+:)?[\w]+)\]/,
+      attr:         /\[((?:[\w-]*:)?[\w-]+)\s*(?:([!^$*~|]?=)\s*((['"])([^\4]*?)\4|([^'"][^\]]*?)))?\]/
     },
 
     Handlers: {
@@ -110,48 +113,106 @@ var Bouncer = (function() {
         if (!(pseudo in Pseudos)) {
           throw 'Unsupported pseudo selector: ' + pseudo;
         } else {
-          return Pseudos[pseudo](match[2]);
+          pseudo = Pseudos[pseudo];
+          return pseudo.hasArgument ? pseudo(match[2]) : pseudo;
         }
+      },
+      attrPresence: function(match) {
+        var name = match[1];
+        return function(e) {
+          return e.hasAttribute(name);
+        };
+      },
+      attr: function(match) {
+        var name     = match[1],
+            operator = match[2],
+            value    = match[5] || match[6];
+        
+        if (operator == '~=') {
+          value = ' ' + value + ' ';
+        }
+        operator = Attributes[operator];
+        
+        return function(e) {
+          return operator(e.getAttribute(name), value);
+        };
       }
     }
   };
+  
+  Attributes = {
+    '=':  function(v, a) { return v === a; },
+    '!=': function(v, a) { return v !== a; },
+    '^=': function(v, a) { return v.indexOf(a) == 0; },
+    '$=': function(v, a) { throw "operator $= not implemented yet"; },
+    '*=': function(v, a) { return v.indexOf(a) >= 0; },
+    '~=': function(v, a) { return (' ' + a + ' ').indexOf(v) >= 0; }
+  };
 
   Pseudos = {
-    not: function(expression) {
+    "not": pseudoWithArgument(function(expression) {
       var matcher = assembleMatcher(expression);
       return function(e) {
         return !matcher(e);
       };
+    }),
+    "first-child": function(e) {
+      while ((e = e.previousSibling)) {
+        if (e.nodeType === 1) return false;
+      }
+      return true;
+    },
+    "last-child": function(e) {
+      while ((e = e.nextSibling)) {
+        if (e.nodeType === 1) return false;
+      }
+      return true;
+    },
+    "empty": function(e) {
+      return !e.firstChild;
     }
   };
 
   function True() {
     return true;
   }
+  
+  function pseudoWithArgument(handler) {
+    handler.hasArgument = true;
+    return handler;
+  }
 
   function assembleMatcher(expression) {
-    var matcher, patterns, handlers, rest, match;
+    var matcher, patterns, handlers, rest, match, found;
 
     while (expression && rest !== expression && (/\S/).test(expression)) {
-      rest = expression;
+      rest = expression, found = false;
 
       patterns = Combinators.Patterns, handlers = Combinators.Handlers;
       for (var name in patterns) {
         if ((match = expression.match(patterns[name]))) {
           matcher = handlers[name](matcher);
-          expression = expression.replace(match[0], '');
+          found = true;
           break;
         }
       }
-
-      patterns = Rules.Patterns, handlers = Rules.Handlers;
-      for (var name in patterns) {
-        if ((match = expression.match(patterns[name]))) {
-          matcher = combineMatchers(handlers[name](match), matcher);
-          expression = expression.replace(match[0], '');
-          break;
+      
+      if (!found) {
+        patterns = Rules.Patterns, handlers = Rules.Handlers;
+        for (var name in patterns) {
+          if ((match = expression.match(patterns[name]))) {
+            matcher = combineMatchers(handlers[name](match), matcher);
+            found = true;
+            break;
+          }
         }
       }
+      
+      if (!found) {
+        throw 'Unkown CSS expression: ' + expression;
+      }
+      
+      expression = expression.replace(match[0], '');
     }
 
     return matcher;
@@ -173,14 +234,12 @@ var Bouncer = (function() {
       return Cache[expression](element);
     },
 
-    registerPseudoWithClosure: function(name, predicateClosure) {
-      Pseudos[name] = predicateClosure;
+    registerPseudoWithArgument: function(name, handler) {
+      Pseudos[name] = pseudoWithArgument(handler);
     },
 
-    registerPseudo: function(name, predicate) {
-      Pseudos[name] = function() {
-        return predicate;
-      };
+    registerPseudo: function(name, handler) {
+      Pseudos[name] = handler
     }
   };
 })();
