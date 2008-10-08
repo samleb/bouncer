@@ -35,7 +35,7 @@ var Bouncer = (function() {
       Combinators,
       Cache = { };
   
-  function True() { return true }
+  function TRUE() { return true }
   
   Matchers = {
     // Patterns imported from Prototype JavaScript Framework.
@@ -59,7 +59,7 @@ var Bouncer = (function() {
       },
       tagName: function(match) {
         var tagName = match[1];
-        if (tagName === "*") return True;
+        if (tagName === "*") return TRUE;
         tagName = tagName.toUpperCase();
         return function(e) {
           return e.tagName.toUpperCase() === tagName;
@@ -77,10 +77,10 @@ var Bouncer = (function() {
           throw "Unsupported pseudo selector: " + pseudo;
         } else {
           pseudo = Pseudos[pseudo];
-          // check identity with unique `True` reference to ensure
+          // check identity with unique `TRUE` reference to ensure
           // `hasArgument` is not coming from outside (e.g. Function.prototype),
           // and we're really dealing with a result from `pseudoWithArgument`.
-          if (pseudo.hasArgument === True) {
+          if (pseudo.hasArgument === TRUE) {
             // give the argument to the generator
             return pseudo.generator(match[2]);
           }
@@ -197,7 +197,7 @@ var Bouncer = (function() {
       }
     }
     
-    return matcher || True;
+    return matcher || TRUE;
     
     function advance(domain, callback) {
       var patterns = domain.patterns;
@@ -213,7 +213,7 @@ var Bouncer = (function() {
 
   function combine(a, b) {
     if (!b)         return a;
-    if (a === True) return b;
+    if (a === TRUE) return b;
     return function(element) {
       var result = a(element);
       return result && b(result === true ? element : result);
@@ -222,7 +222,7 @@ var Bouncer = (function() {
   
   function pseudoWithArgument(generator) {
     return {
-      hasArgument: True,
+      hasArgument: TRUE,
       generator:   generator
     };
   }
@@ -242,6 +242,20 @@ var Bouncer = (function() {
     },
     
     /**
+     *  @param   {String}   name    The name of the pseudo-selector
+     *  @param   {Function} matcher The matcher
+     *  @returns {void}
+     *  @example
+     *    Bouncer.registerPseudo("checked", function(element) {
+     *      return element.checked;
+     *    });
+     *    Bouncer.match(document.forms.new_post.draft, ":checked");
+    **/
+    registerPseudo: function(name, matcher) {
+      Pseudos[name] = matcher;
+    },
+    
+    /**
      *  @param   {String}   name      The name of the pseudo-selector
      *  @param   {Function} generator The generator that should return a matcher
      *  @returns {void}
@@ -255,20 +269,6 @@ var Bouncer = (function() {
     **/
     registerPseudoWithArgument: function(name, generator) {
       Pseudos[name] = pseudoWithArgument(generator);
-    },
-
-    /**
-     *  @param   {String}   name    The name of the pseudo-selector
-     *  @param   {Function} matcher The matcher
-     *  @returns {void}
-     *  @example
-     *    Bouncer.registerPseudo("checked", function(element) {
-     *      return element.checked;
-     *    });
-     *    Bouncer.match(document.forms.new_post.draft, ":checked");
-    **/
-    registerPseudo: function(name, matcher) {
-      Pseudos[name] = matcher;
     }
   };
 })();
