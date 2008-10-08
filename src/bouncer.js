@@ -1,5 +1,5 @@
 /**
- *  Bouncer
+ *  Bouncer v0.1a
  *  Copyright (c) 2008 Samuel Lebeau, Xilinus
  *
  * Permission is hereby granted, free of charge, to any person
@@ -24,70 +24,33 @@
  * OTHER DEALINGS IN THE SOFTWARE.
 **/
 
+/**
+ *  @namespace Holds Bouncer methods
+**/
 var Bouncer = (function() {
 
-  var Combinators,
-      Rules,
-      Attributes,
+  var Matchers,
+      AttributeOperators,
       Pseudos,
+      Combinators,
       Cache = { };
-
-  Combinators = {
-    Patterns: {
-      child:      /^\s*>\s*/,
-      adjacent:   /^\s*\+\s*/,
-      later:      /^\s*~\s*/,
-      descendant: /^\s+/
-    },
-
-    Handlers: {
-      // A B
-      descendant: function(matcher) {
-        return function(e) {
-          while ((e = e.parentNode).nodeType === 1) {
-            if (matcher(e)) return e;
-          }
-          return false;
-        };
-      },
-      // A > B
-      child: function(matcher) {
-        return function(e) {
-          return (e = e.parentNode).nodeType === 1 && matcher(e) && e;
-        };
-      },
-      // A + B
-      adjacent: function(matcher) {
-        return function(e) {
-          while ((e = e.previousSibling)) {
-            if (e.nodeType === 1) return matcher(e) && e;
-          }
-          return false;
-        };
-      },
-      // A ~ B
-      later: function(matcher) {
-        return function(e) {
-          while ((e = e.previousSibling)) {
-            if (e.nodeType === 1 && matcher(e)) return e;
-          }
-          return false;
-        };
-      }
-    }
-  };
-
-  Rules = {
-    Patterns: {
-      id:        /^#([\w\-\*]+)(?:\b|$)/,
-      tagName:   /^\s*(\*|[\w\-]+)(?:\b|$)?/,
-      className: /^\.([\w\-\*]+)(?:\b|$)/,
-      pseudo:    /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/,
+  
+  function True() { return true }
+  
+  Matchers = {
+    // Patterns imported from Prototype JavaScript Framework.
+    patterns: {
+      id:           /^#([\w\-\*]+)(?:\b|$)/,
+      tagName:      /^\s*(\*|[\w\-]+)(?:\b|$)?/,
+      className:    /^\.([\w\-\*]+)(?:\b|$)/,
+      pseudo:       /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/,
       attrPresence: /^\[((?:[\w]+:)?[\w]+)\]/,
-      attr:         /\[((?:[\w-]*:)?[\w-]+)\s*(?:([!^$*~|]?=)\s*((['"])([^\4]*?)\4|([^'"][^\]]*?)))?\]/
+      attr: /\[((?:[\w-]*:)?[\w-]+)\s*(?:([!^$*~|]?=)\s*((['"])([^\4]*?)\4|([^'"][^\]]*?)))?\]/
     },
 
-    Handlers: {
+    // Generators take the result of a successful pattern match 
+    // and return an element matcher.
+    generators: {
       id: function(match) {
         var id = match[1];
         return function(e) {
@@ -114,9 +77,17 @@ var Bouncer = (function() {
           throw "Unsupported pseudo selector: " + pseudo;
         } else {
           pseudo = Pseudos[pseudo];
-          return pseudo.hasArgument ? pseudo(match[2]) : pseudo;
+          // check identity with unique `True` reference to ensure
+          // `hasArgument` is not coming from outside (e.g. Function.prototype),
+          // and we're really dealing with a result from `pseudoWithArgument`.
+          if (pseudo.hasArgument === True) {
+            // give the argument to the generator
+            return pseudo.generator(match[2]);
+          }
+          return pseudo;
         }
       },
+      // FIXME: All attribute stuff will obviously not work with IE.
       attrPresence: function(match) {
         var name = match[1];
         return function(e) {
@@ -126,30 +97,73 @@ var Bouncer = (function() {
       attr: function(match) {
         var name     = match[1],
             operator = match[2],
-            value    = match[5] || match[6];
+            argument = match[5] || match[6];
         
-        if (operator == "~=") {
-          value = " " + value + " ";
+        if (operator === "~=") {
+          argument = " " + argument + " "; // precompute string used in operator
         }
-        operator = Attributes[operator];
+        operator = AttributeOperators[operator];
         
         return function(e) {
-          return operator(e.getAttribute(name), value);
+          return operator(e.getAttribute(name), argument);
         };
       }
     }
   };
   
-  Attributes = {
-    '=':  function(v, a) { return v === a; },
-    '!=': function(v, a) { return v !== a; },
-    '^=': function(v, a) { return v.indexOf(a) == 0; },
-    '$=': function(v, a) { throw "operator $= not implemented yet"; },
-    '*=': function(v, a) { return v.indexOf(a) >= 0; },
-    '~=': function(v, a) { return (" " + a + " ").indexOf(v) >= 0; }
+  AttributeOperators = {
+    // `v` stand for value, `a` for argument
+    "=":  function(v, a) { return v === a; },
+    "!=": function(v, a) { return v !== a; },
+    "^=": function(v, a) { return v.indexOf(a) == 0; },
+    "$=": function(v, a) { throw "operator $= not implemented yet"; },
+    "*=": function(v, a) { return v.indexOf(a) >= 0; },
+    "~=": function(v, a) { return (" " + v + " ").indexOf(a) >= 0; }
+  };
+  
+  Combinators = {
+    patterns: {
+      child:      /^\s*>\s*/,   // A > B
+      descendant: /^\s+/,       // A B
+      adjacent:   /^\s*\+\s*/,  // A + B
+      later:      /^\s*~\s*/    // A ~ B
+    },
+    
+    generators: {
+      child: function(matcher) {
+        return function(e) {
+          return (e = e.parentNode).nodeType === 1 && matcher(e) && e;
+        };
+      },
+      descendant: function(matcher) {
+        return function(e) {
+          while ((e = e.parentNode).nodeType === 1) {
+            if (matcher(e)) return e;
+          }
+          return false;
+        };
+      },
+      adjacent: function(matcher) {
+        return function(e) {
+          while ((e = e.previousSibling)) {
+            if (e.nodeType === 1) return matcher(e) && e;
+          }
+          return false;
+        };
+      },
+      later: function(matcher) {
+        return function(e) {
+          while ((e = e.previousSibling)) {
+            if (e.nodeType === 1 && matcher(e)) return e;
+          }
+          return false;
+        };
+      }
+    }
   };
 
   Pseudos = {
+    // Read: “ "not" is a pseudo whose argument is an expression ”
     "not": pseudoWithArgument(function(expression) {
       var matcher = assembleMatcher(expression);
       return function(e) {
@@ -173,73 +187,88 @@ var Bouncer = (function() {
     }
   };
 
-  function True() {
-    return true;
-  }
-  
-  function pseudoWithArgument(handler) {
-    handler.hasArgument = true;
-    return handler;
-  }
-
   function assembleMatcher(expression) {
-    var matcher, patterns, handlers, rest, match, found;
-
-    while (expression && rest !== expression && (/\S/).test(expression)) {
-      rest = expression, found = false;
-
-      patterns = Combinators.Patterns, handlers = Combinators.Handlers;
+    var matcher, match;
+    
+    while (expression) {
+      if (!(advance(Combinators, function(g) { return g(matcher) }) ||
+            advance(Matchers, function(g, m) { return combine(g(m), matcher) }))) {
+        throw "Unkown or invalid CSS expression: " + expression;
+      }
+    }
+    
+    return matcher || True;
+    
+    function advance(domain, callback) {
+      var patterns = domain.patterns;
       for (var name in patterns) {
         if ((match = expression.match(patterns[name]))) {
-          matcher = handlers[name](matcher);
-          found = true;
-          break;
+          expression = expression.replace(match[0], "");
+          matcher = callback(domain.generators[name], match);
+          return true;
         }
       }
-      
-      if (!found) {
-        patterns = Rules.Patterns, handlers = Rules.Handlers;
-        for (var name in patterns) {
-          if ((match = expression.match(patterns[name]))) {
-            matcher = combineMatchers(handlers[name](match), matcher);
-            found = true;
-            break;
-          }
-        }
-      }
-      
-      if (!found) {
-        throw "Unkown CSS expression: " + expression;
-      }
-      
-      expression = expression.replace(match[0], "");
     }
-
-    return matcher;
   }
 
-  function combineMatchers(matcher1, matcher2) {
-    if (!matcher2) return matcher1;
+  function combine(a, b) {
+    if (!b)         return a;
+    if (a === True) return b;
     return function(element) {
-      var result = matcher1(element);
-      return result && matcher2(result === true ? element : result);
+      var result = a(element);
+      return result && b(result === true ? element : result);
+    };
+  }
+  
+  function pseudoWithArgument(generator) {
+    return {
+      hasArgument: True,
+      generator:   generator
     };
   }
 
   return {
+    /**
+     *  @param   {Element} element     An element which is in DOM
+     *  @param   {String}  expression  A stripped valid CSS expression
+     *  @example
+     *    Bouncer.match(document.body, 'body');
+    **/
     match: function(element, expression) {
       if (!(expression in Cache)) {
         Cache[expression] = assembleMatcher(expression);
       }
       return Cache[expression](element);
     },
-
-    registerPseudoWithArgument: function(name, handler) {
-      Pseudos[name] = pseudoWithArgument(handler);
+    
+    /**
+     *  @param   {String}   name      The name of the pseudo-selector
+     *  @param   {Function} generator The generator that should return a matcher
+     *  @returns {void}
+     *  @example
+     *    Bouncer.registerPseudoWithArgument("contains", function(text) {
+     *      return function(element) {
+     *        return element.innerText.indexOf(text) >= 0;
+     *      }
+     *    });
+     *    Bouncer.match(document.getElementById("article"), ":contains('these words')");
+    **/
+    registerPseudoWithArgument: function(name, generator) {
+      Pseudos[name] = pseudoWithArgument(generator);
     },
 
-    registerPseudo: function(name, handler) {
-      Pseudos[name] = handler
+    /**
+     *  @param   {String}   name    The name of the pseudo-selector
+     *  @param   {Function} matcher The matcher
+     *  @returns {void}
+     *  @example
+     *    Bouncer.registerPseudo("checked", function(element) {
+     *      return element.checked;
+     *    });
+     *    Bouncer.match(document.forms.new_post.draft, ":checked");
+    **/
+    registerPseudo: function(name, matcher) {
+      Pseudos[name] = matcher;
     }
   };
 })();

@@ -61,6 +61,7 @@
           this.assert(match($$('body'), 'body'));
           this.assert(match(['fixtures', 'testlog'], 'div'));
           this.assert(match('list', 'ul'));
+          this.assert(match($$('*'), '*'));
         },
         testClassName: function() {
           this.assert(match(['entry_1', 'entry_3'], '.odd'));
