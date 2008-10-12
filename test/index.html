@@ -34,9 +34,8 @@
     </div>
     <!-- HTML Fixtures end -->
     <script type="text/javascript" charset="utf-8">
-      
       Bouncer.findElement = function(element, expression) {
-        while (element) {
+        while (element.nodeType === 1) {
           if (Bouncer.match(element, expression)) {
             return element;
           }
@@ -106,20 +105,19 @@
           this.assert(!match('paragraph', "[xml:lang=en]"));
           this.assert(!match('paragraph', "[xml:lang=US]"));
           this.assert(!match('paragraph', "[xml:lang='']"));
-          
-          this.assert(match('paragraph', '[xml:lang!=fr-FR]'));
-          this.assert(!match('paragraph', '[xml:lang!=en-US]'));
+          this.assert(!match('list', '[xml:lang=""]'));
           
           this.assert(match('paragraph', '[xml:lang^=e]'));
-          this.assert(!match('paragraph', '[xml:lang!=f]'));
+          this.assert(!match('paragraph', '[xml:lang^=f]'));
+          this.assert(!match('list', '[xml:lang^=f]'));
           
           this.assert(match('paragraph', '[xml:lang$=S]'));
+          this.assert(match('paragraph', '[xml:lang$=-US]'));
           this.assert(!match('paragraph', '[xml:lang$=R]'));
           
           this.assert(match('entry_1', '[class~=odd]'));
           this.assert(match('entry_1', '[class~="first"]'));
           this.assert(!match('entry_1', '[class~=even]'));
-          
         },
         testRegisterPseudo: function() {
           var element;
@@ -143,40 +141,8 @@
           this.assertIdentical(document.body, element);
           this.assertEqual('expr', argument);
         },
-        testBenchmarkMatch: function() {
-          var body = document.body;
-          this.info("using Element#match");
-          this.benchmark(function() { Element.match(body, "body") }, 500);
-          this.benchmark(function() { Element.match(body, "html > body:not(.klass)") }, 500);
-          this.info("same benchs with Bouncer.match");
-          this.benchmark(function() { Bouncer.match(body, "body") }, 500);
-          this.benchmark(function() { Bouncer.match(body, "html > body:not(.klass)") }, 500);
-        },
-        testBenchmarkElementUp: function() {
-          var list = $('list');
-          this.info("using Element#up");
-          this.benchmark(function() { list.up('html') }, 500);
-          this.info("code of Event#findElement");
-          this.benchmark(function() {
-            Selector.findElement([list].concat(list.ancestors()), 'html', 0);
-          }, 500);
-          this.info("Bouncer.up");
-          this.benchmark(function() {
-            Bouncer.findElement(list, 'html');
-          }, 500);
-          this.info("using Element#up")
-          this.benchmark(function() {
-            list.up('html > body:not(div)');
-          }, 500);
-          this.info("code of Event#findElement");
-          this.benchmark(function() {
-            var elements = [list].concat(list.ancestors());
-            return Selector.findElement(elements, 'html > body:not(div)', 0);
-          }, 500);
-          this.info("Bouncer up");
-          this.benchmark(function() {
-            Bouncer.findElement(list, 'html');
-          }, 500);
+        testErrorsZZZ: function() {
+          Bouncer.match(document.body, "body >");
         }
       });
     </script>
