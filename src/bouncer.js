@@ -36,190 +36,199 @@ var Bouncer = (function() {
       AttributeOperators,
       Pseudos,
       Combinators,
-      Cache = { };
-
-  function assembleSelector(expression) {
-    var selector;
-
-    function scan(selectorsType, callback) {
-      var match;
-      for (var i = 0, l = selectorsType.length; i < l; i += 2) {
-        if ((match = expression.match(selectorsType[i]))) {
-          expression = expression.slice(match[0].length);
-          selector = callback(selectorsType[i + 1], selector, match);
-          return true;
+      CombinatorPattern = /^\s*([\+\s~>,])\s*/,
+      PredicatesCache   = { },
+      MatchersCache     = { };
+  
+  function TRUE() {
+    return true;
+  }
+  
+  /** Matches an element against a stripped CSS expression. */
+  function match(element, expression) {
+    if (!(expression in MatchersCache)) {
+      MatchersCache[expression] = createMatcher(expression);
+    }
+    return MatchersCache[expression](element);
+  }
+  
+  function createMatcher(expression) {
+    var parts = scanExpression(expression);
+    return parts.length === 1 ? parts[0] : function(e) {
+      return matchRestingParts(e, parts, parts.length);
+    }
+  }
+  
+  function scanExpression(expression) {
+    var match,
+        parts = [ ];
+    
+    function scan(pattern) {
+      if ((match = expression.match(pattern))) {
+        expression = expression.slice(match[0].length);
+      }
+      return match;
+    }
+    
+    while (expression) {
+      if (parts.length && scan(CombinatorPattern)) {
+        parts.push(Combinators[match[1]]);
+      }
+      for (var i = 0, l = Selectors.length; i < l; i++) {
+        if (scan(Selectors[i].pattern)) {
+          parts.push(Selectors[i].getPredicate(match));
+          break;
         }
       }
-    }
-
-    while (expression) {
-      if (selector) {
-        scan(Combinators, returnCombinator);
-      }
-      if (!scan(Selectors, returnSelector)) {
+      if (!match) {
         throw "Unkown expression: " + expression;
       }
     }
-
-    return selector || TRUE;
+    
+    return parts;
   }
-
-  function returnCombinator(generator, selector) {
-    return generator(selector);
-  }
-
-  function returnSelector(generator, selector, match) {
-    var expression = match[0],
-        part = (Cache[expression] = Cache[expression] || generator(match));
-    if (!selector) return part;
-    if (part === TRUE) return selector;
-    return function(e) {
-      var result = part(e);
-      return result && selector(result === true ? e : result);
-    };
-  }
-
-  function pseudoWithArgument(generator) {
+  
+  // div span.author > a, a:target
+  // (',' ('>' (' ', 'div', 'span.author') 'a') 'a:target')
+  
+  function createSelector(pattern, generator) {
     return {
-      hasArgument: TRUE,
-      generator:   generator
+      pattern:      pattern,
+      getPredicate: function(match) {
+        if (match[0] in PredicatesCache) return PredicatesCache[match[0]];
+        return PredicatesCache[match.shift()] = generator.apply(null, match);
+      }
     };
   }
-
-  function TRUE() { return true }
-
-  Selectors = [
-    // ID selectors, e.g. "#container"
-    /^#([\w\-\*]+)(?:\b|$)/,
-    function(m) {
-      var id = m[1];
-      return function(e) {
-        return e.id === id;
-      };
-    },
-    // Tag name selectors, e.g. "html"
-    /^\s*(\*|[\w\-]+)(?:\b|$)?/,
-    function(m) {
-      var tagName = m[1];
-      if (tagName === "*") return TRUE;
-      tagName = tagName.toUpperCase();
-      return function(e) {
-        return e.tagName.toUpperCase() === tagName;
-      };
-    },
-    // Class selectors, e.g. ".article"
-    /^\.([\w\-\*]+)(?:\b|$)/,
-    function(m) {
-      var pattern = new RegExp("(?:^|\\s)" + m[1] + "(?:\\s|$)");
-      return function(e) {
-        return pattern.test(e.className);
-      };
-    },
-    // Attributes presence selectors, e.g. "[href]"
-    // FIXME: All attribute stuff will obviously not work with IE.
-    /^\[((?:[\w]+:)?[\w]+)\]/,
-    function(m) {
-      var name = m[1];
-      return function(e) {
-        return e.hasAttribute(name);
-      };
-    },
-    // Attributes selectors, e.g. "[href='#']"
-    /\[((?:[\w-]*:)?[\w-]+)\s*(?:([!^$*~|]?=)\s*(?:(['"])([^\3]*?)\3|([^'"][^\]]*?)))?\]/,
-    function(m) {
-      var name     = m[1],
-          operator = m[2],
-          arg      = m[4] || m[5];
-      // precompute string used in operator
-      if (operator === "~=") {
-        arg = " " + arg + " ";
-      } else if (operator === "|=") {
-        arg = "-" + arg + "-";
-      }
-      operator = AttributeOperators[operator];
-      return function(e) {
-        return e.hasAttribute(name) && operator(e.getAttribute(name), arg);
-      };
-    },
-    // Pseudo selectors, e.g. ":first-child", ":not(a)"
-    /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/,
-    function(m) {
-      var pseudo = m[1];
-      if (!(pseudo in Pseudos)) {
-        throw "Unsupported pseudo selector: " + pseudo;
-      } else {
-        pseudo = Pseudos[pseudo];
-        // check identity with unique `TRUE` reference to ensure
-        // `hasArgument` is not coming from outside (e.g. Function.prototype),
-        // and we're really dealing with a result from `pseudoWithArgument`.
-        if (pseudo.hasArgument === TRUE) {
-          // give the argument to the generator
-          return pseudo.generator(m[2]);
+  
+  function createCombinator(direction, follow) {
+    return function(e, parts, index) {
+      while ((e = e[direction])) {
+        if (e.nodeType === 1) {
+          if (matchRestingParts(e, parts, index)) return true;
+          if (!follow) break;
         }
-        return pseudo;
       }
+      return false;
+    };
+  }
+  
+  function createPseudoWithArgument(generator) {
+    return {
+      hasArgument:  TRUE,
+      getPredicate: generator
+    };
+  }
+  
+  function matchRestingParts(e, parts, index) {
+    var part;
+    while ((part = parts[--index])) {
+      if (part.length === 3) {
+        return part(e, parts, index);
+      }
+      if (!part(e)) return false;
     }
-  ];
-
-  AttributeOperators = {
-    // `v` stands for value, `a` for argument
-    "=":  function(v, a) { return v === a },
-    "^=": function(v, a) { return v.indexOf(a) === 0 },
-    "*=": function(v, a) { return v.indexOf(a) !== -1 },
-    "~=": function(v, a) { return (" " + v + " ").indexOf(a) !== -1 },
-    "|=": function(v, a) { return ("-" + v + "-").indexOf(a) !== -1 },
-    "$=": function(v, a) {
-      var i = v.length - a.length;
-      return i >= 0 && v.lastIndexOf(a) === i;
+    return true;
+  }
+  
+  Combinators = {
+    "~": createCombinator("previousSibling", true),
+    "+": createCombinator("previousSibling", false),
+    ">": createCombinator("parentNode",      false),
+    " ": createCombinator("parentNode",      true),
+    ",": function(e, parts, index) {
+      return matchRestingParts(e, parts, index - 1);
     }
   };
-
-  Combinators = [
-    // Child combinator, e.g. "A > B"
-    /^\s*>\s*/,
-    function(matcher) {
-      return function(e) {
-        return (e = e.parentNode).nodeType === 1 && matcher(e) && e;
-      };
-    },
-    // Adjacent sibling combinator, e.g. "A + B"
-    /^\s*\+\s*/,
-    function(matcher) {
-      return function(e) {
-        while ((e = e.previousSibling)) {
-          if (e.nodeType === 1) return matcher(e) && e;
+  
+  Selectors = [
+    // ID selectors, e.g. "#container"
+    createSelector(
+      /^#([\w\-\*]+)(?:\b|$)/,
+      function(id) {
+        return function(e) {
+          return e.id === id;
+        };
+      }
+    ),
+    // Tag name selectors, e.g. "html"
+    createSelector(
+      /^\s*(\*|[\w\-]+)(?:\b|$)?/,
+      function(tagName) {
+        if (tagName === "*") return TRUE;
+        tagName = tagName.toUpperCase();
+        return function(e) {
+          console.log("expected: " + tagName);
+          console.log("actual:  " + e.tagName);
+          return e.tagName.toUpperCase() === tagName;
+        };
+      }
+    ),
+    // Class selectors, e.g. ".article"
+    createSelector(
+      /^\.([\w\-\*]+)(?:\b|$)/,
+      function(className) {
+        var pattern = new RegExp("(?:^|\\s)" + className + "(?:\\s|$)");
+        return function(e) {
+          return pattern.test(e.className);
+        };
+      }
+    ),
+    // Attributes presence selectors, e.g. "[href]"
+    // FIXME: All attribute stuff will obviously not work with IE.
+    createSelector(
+      /^\[((?:[\w]+:)?[\w]+)\]/,
+      function(name) {
+        return function(e) {
+          return e.hasAttribute(name);
+        };
+      }
+    ),
+    // Attributes selectors, e.g. "[href='#']"
+    createSelector(
+      /\[((?:[\w-]*:)?[\w-]+)\s*(?:([!^$*~|]=|=)\s*(?:(['"])([^\3]*?)\3|([^'"][^\]]*?)))?\]/,
+      function(name, operator, quote, arg, arg2) {
+        operator = operator[0];
+        arg = arg || arg2
+        switch(operator) {
+          case "~": arg = " " + arg + " ";   break;
+          case "|": arg = arg.toLowerCase(); break;
         }
-        return false;
-      };
-    },
-    // General sibling combinator, e.g. "A ~ B"
-    /^\s*~\s*/,
-    function(matcher) {
-      return function(e) {
-        while ((e = e.previousSibling)) {
-          if (e.nodeType === 1 && matcher(e)) return e;
+        return function(e) {
+          if (!e.hasAttribute(name)) return false;
+          var v = e.getAttribute(name);
+          switch(operator) {
+            case "=": return v === arg;
+            case "^": return v.indexOf(arg) === 0;
+            case "*": return v.indexOf(arg) !== -1;
+            case "~": return (" " + v + " ").indexOf(arg) !== -1;
+            case "|": return (v = v.toLowerCase()) === arg || v.indexOf(arg + "-") === 0;
+            case "$":
+              var i = v.length - arg.length;
+              return i >= 0 && v.lastIndexOf(arg) === i;
+          }
+        };
+      }
+    ),
+    // Pseudo selectors, e.g. ":first-child", ":not(a)"
+    createSelector(
+      /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/,
+      function(name, arg) {
+        if (!(name in Pseudos)) {
+          throw "Unsupported pseudo selector: " + pseudo;
         }
-        return false;
-      };
-    },
-    // Descendant combinator, e.g. "A B"
-    /^\s+/,
-    function(matcher) {
-      return function(e) {
-        while ((e = e.parentNode).nodeType === 1) {
-          if (matcher(e)) return e;
-        }
-        return false;
-      };
-    }
+        pseudo = Pseudos[name];
+        return pseudo.hasArgument === TRUE ? pseudo.getPredicate(arg) : pseudo;
+      }
+    )
   ];
-
+  
   Pseudos = {
     // Read: “ "not" is a pseudo whose argument is an expression ”
-    "not": pseudoWithArgument(function(expression) {
-      var selector = assembleSelector(expression);
+    "not": createPseudoWithArgument(function(expression) {
+      var matcher = createMatcher(expression);
       return function(e) {
-        return !selector(e);
+        return !matcher(e);
       };
     }),
     "first-child": function(e) {
@@ -249,17 +258,11 @@ var Bouncer = (function() {
   };
 
   return {
-    /** Matches an element against a CSS expression. */
-    match: function(element, expression) {
-      if (!(expression in Cache)) {
-        Cache[expression] = assembleSelector(expression);
-      }
-      return Cache[expression](element);
-    },
+    match: match,
 
     /**
      *  @param   {String}   name    The name of the pseudo-selector
-     *  @param   {Function} matcher The matcher
+     *  @param   {Function} selector The selector
      *  @returns {void}
      *  @example
      *    Bouncer.registerPseudo("checked", function(element) {
@@ -267,13 +270,13 @@ var Bouncer = (function() {
      *    });
      *    Bouncer.match(document.forms.new_post.draft, ":checked");
     **/
-    registerPseudo: function(name, matcher) {
-      Pseudos[name] = matcher;
+    registerPseudo: function(name, selector) {
+      Pseudos[name] = selector;
     },
 
     /**
      *  @param   {String}   name      The name of the pseudo-selector
-     *  @param   {Function} generator The generator that should return a matcher
+     *  @param   {Function} generator The generator that should return a selector
      *  @returns {void}
      *  @example
      *    Bouncer.registerPseudoWithArgument("contains", function(text) {
@@ -284,7 +287,7 @@ var Bouncer = (function() {
      *    Bouncer.match(document.getElementById("article"), ":contains('these words')");
     **/
     registerPseudoWithArgument: function(name, generator) {
-      Pseudos[name] = pseudoWithArgument(generator);
+      Pseudos[name] = createPseudoWithArgument(generator);
     }
   };
 })();

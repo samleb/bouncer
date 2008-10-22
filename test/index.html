@@ -50,100 +50,98 @@
       }
       
       new Test.Unit.Runner({
-        testId: function() {
-          this.assert(match('fixtures', '#fixtures'));
-          this.assert(match('list', '#list'));
-        },
-        testTagName: function() {
-          this.assert(match($$('html'), 'html'));
-          this.assert(match($$('head'), 'head'));
-          this.assert(match($$('body'), 'body'));
-          this.assert(match(['fixtures', 'testlog'], 'div'));
-          this.assert(match('list', 'ul'));
-          this.assert(match($$('*'), '*'));
-        },
-        testClassName: function() {
-          this.assert(match(['entry_1', 'entry_3'], '.odd'));
-          this.assert(!match('entry_2', '.odd'));
-          this.assert(match('entry_2', '.even'));
-          this.assert(match('entry_1', '.odd.first'));
-        },
-        testDescendant: function() {
-          this.assert(match('fixtures', 'html div'));
-          this.assert(match('fixtures', 'body div'));
-          this.assert(match('fixtures', 'html body div'));
-          this.assert(match('list', 'body ul'));
-        },
-        testChild: function() {
-          this.assert(match($$('body'), 'html > body'));
-          this.assert(!match('fixtures', 'html > div'));
-          this.assert(match($$('title'), 'html > head > title'));
-          this.assert(match('list', 'body > div > ul'));
-        },
-        // testComma: function() {
-        //   this.assert(match($$('body'), 'body, head'));
-        //   this.assert(match($$('head'), 'body, head'));
-        //   this.assert(!match($$('html'), 'body, head'));
+        // testId: function() {
+        //   this.assert(match('fixtures', '#fixtures'));
+        //   this.assert(match('list', '#list'));
         // },
-        testNot: function() {
-          this.assert(match($$('body'), ':not(head)'));
-          this.assert(!match($$('body'), ':not(body)'));
-          this.assert(match('entry_1', '#entry_1:not(.even)'));
-          this.assert(!match('entry_1', '#entry_1:not(.odd)'));
+        // testTagName: function() {
+        //   this.assert(match($$('html'), 'html'));
+        //   this.assert(match($$('head'), 'head'));
+        //   this.assert(match($$('body'), 'body'));
+        //   this.assert(match(['fixtures', 'testlog'], 'div'));
+        //   this.assert(match('list', 'ul'));
+        //   this.assert(match($$('*'), '*'));
+        // },
+        // testClassName: function() {
+        //   this.assert(match(['entry_1', 'entry_3'], '.odd'));
+        //   this.assert(!match('entry_2', '.odd'));
+        //   this.assert(match('entry_2', '.even'));
+        //   this.assert(match('entry_1', '.odd.first'));
+        // }, 
+        // testDescendant: function() {
+        //   this.assert(match('fixtures', 'html div'));
+        //   this.assert(match('fixtures', 'body div'));
+        //   this.assert(match('fixtures', 'html body div'));
+        //   this.assert(!match('fixtures', 'nothing div'));
+        //   this.assert(match('list', 'body ul'));
+        // },
+        // testChild: function() {
+        //   this.assert(match($$('body'), 'html > body'));
+        //   this.assert(!match('fixtures', 'html > div'));
+        //   this.assert(match($$('title'), 'html > head > title'));
+        //   this.assert(match('list', 'body > div > ul'));
+        // },
+        testComma: function() {
+          this.assert(match($$('body'), 'body, head'));
+          this.assert(match($$('head'), 'body, head'));
+          this.assert(!match($$('html'), 'body, head'));
         },
-        testComplexQueries: function() {
-          this.assert(match('entry_1', 'body #list > li#entry_1.odd.first'));
-        },
-        testAttributePresence: function() {
-          this.assert(match('list', 'ul[id]'));
-          this.assert(match('paragraph', 'p[xml:lang]'));
-        },
-        testAttributes: function() {
-          this.assert(match('paragraph', '[xml:lang=en-US]'));
-          this.assert(match('paragraph', '[xml:lang="en-US"]'));
-          this.assert(match('paragraph', "[xml:lang='en-US']"));
-          this.assert(!match('paragraph', "[xml:lang=en]"));
-          this.assert(!match('paragraph', "[xml:lang=US]"));
-          this.assert(!match('paragraph', "[xml:lang='']"));
-          this.assert(!match('list', '[xml:lang=""]'));
-          
-          this.assert(match('paragraph', '[xml:lang^=e]'));
-          this.assert(!match('paragraph', '[xml:lang^=f]'));
-          this.assert(!match('list', '[xml:lang^=f]'));
-          
-          this.assert(match('paragraph', '[xml:lang$=S]'));
-          this.assert(match('paragraph', '[xml:lang$=-US]'));
-          this.assert(!match('paragraph', '[xml:lang$=R]'));
-          
-          this.assert(match('entry_1', '[class~=odd]'));
-          this.assert(match('entry_1', '[class~="first"]'));
-          this.assert(!match('entry_1', '[class~=even]'));
-        },
-        testRegisterPseudo: function() {
-          var element;
-          Bouncer.registerPseudo('test', function(e) {
-            element = e;
-            return true;
-          });
-          this.assert(Bouncer.match(document.body, ':test'));
-          this.assertIdentical(document.body, element);
-        },
-        testRegisterPseudoWithArgument: function() {
-          var element, argument;
-          Bouncer.registerPseudoWithArgument('test2', function(arg) {
-            argument = arg;
-            return function(e) {
-              element = e;
-              return true
-            }
-          });
-          this.assert(Bouncer.match(document.body, ':test2(expr)'))
-          this.assertIdentical(document.body, element);
-          this.assertEqual('expr', argument);
-        },
-        testErrorsZZZ: function() {
-          Bouncer.match(document.body, "body >");
-        }
+        // testNot: function() {
+        //   this.assert(match($$('body'), ':not(head)'));
+        //   this.assert(!match($$('body'), ':not(body)'));
+        //   this.assert(match('entry_1', '#entry_1:not(.even)'));
+        //   this.assert(!match('entry_1', '#entry_1:not(.odd)'));
+        // },
+        // testComplexQueries: function() {
+        //   this.assert(match('entry_1', 'body #list > li#entry_1.odd.first'));
+        // },
+        // testAttributePresence: function() {
+        //   this.assert(match('list', 'ul[id]'));
+        //   this.assert(match('paragraph', 'p[xml:lang]'));
+        // },
+        // testAttributes: function() {
+        //   this.assert(match('paragraph', '[xml:lang=en-US]'));
+        //   this.assert(match('paragraph', '[xml:lang="en-US"]'));
+        //   this.assert(match('paragraph', "[xml:lang='en-US']"));
+        //   this.assert(!match('paragraph', "[xml:lang=en]"));
+        //   this.assert(!match('paragraph', "[xml:lang=US]"));
+        //   this.assert(!match('paragraph', "[xml:lang='']"));
+        //   this.assert(!match('list', '[xml:lang=""]'));
+        //   
+        //   this.assert(match('paragraph', '[xml:lang^=e]'));
+        //   this.assert(!match('paragraph', '[xml:lang^=f]'));
+        //   this.assert(!match('list', '[xml:lang^=f]'));
+        //   
+        //   this.assert(match('paragraph', '[xml:lang$=S]'));
+        //   this.assert(match('paragraph', '[xml:lang$=-US]'));
+        //   this.assert(!match('paragraph', '[xml:lang$=R]'));
+        //   
+        //   this.assert(match('entry_1', '[class~=odd]'));
+        //   this.assert(match('entry_1', '[class~="first"]'));
+        //   this.assert(!match('entry_1', '[class~=even]'));
+        // },
+        // testRegisterPseudo: function() {
+        //   var element;
+        //   Bouncer.registerPseudo('test', function(e) {
+        //     element = e;
+        //     return true;
+        //   });
+        //   this.assert(Bouncer.match(document.body, ':test'));
+        //   this.assertIdentical(document.body, element);
+        // },
+        // testRegisterPseudoWithArgument: function() {
+        //   var element, argument;
+        //   Bouncer.registerPseudoWithArgument('test2', function(arg) {
+        //     argument = arg;
+        //     return function(e) {
+        //       element = e;
+        //       return true;
+        //     }
+        //   });
+        //   this.assert(Bouncer.match(document.body, ':test2(expr)'))
+        //   this.assertIdentical(document.body, element);
+        //   this.assertEqual('expr', argument);
+        // }
       });
     </script>
   </body>
