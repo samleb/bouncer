@@ -6,7 +6,7 @@
     <title>Bouncer Unit test file</title>
     <link rel="stylesheet" href="test.css" type="text/css" media="screen" charset="utf-8">
     <script src="prototype.js" type="text/javascript" charset="utf-8"></script>
-    <script src="../src/scanner.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../src/tokenizer.js" type="text/javascript" charset="utf-8"></script>
     <script src="../src/bouncer.js" type="text/javascript" charset="utf-8"></script>
     <script src="unittest.js" type="text/javascript" charset="utf-8"></script>
   </head>
@@ -87,9 +87,9 @@
         testBenchmarkMatch: function() {
           var body = document.body;
           this.info("using Element#match");
-          this.benchmark(function() { Element.match('list_6', "#list li li.odd") }, 500);
-          this.info("using Element#match");
-          this.benchmark(function() { Bouncer.match($('list_6'), "ul") }, 500);
+          this.benchmark(function() { Element.match('entry_6', "#list li li.odd") }, 500);
+          this.info("using Bouncer#match");
+          this.benchmark(function() { Bouncer.match($('entry_6'), "ul") }, 500);
           
         },
         testNot: function() {
@@ -126,7 +126,7 @@
           this.assert(match('entry_1', '[class~="first"]'));
           this.assert(!match('entry_1', '[class~=even]'));
         },
-        testRegisterPseudo: function() {
+        testregisterPseudo: function() {
           var element;
           Bouncer.registerPseudo('test', function(e) {
             element = e;
@@ -135,7 +135,7 @@
           this.assert(Bouncer.match(document.body, ':test'));
           this.assertIdentical(document.body, element);
         },
-        testRegisterPseudoWithArgument: function() {
+        testregisterPseudoWithArgument: function() {
           var element, argument;
           Bouncer.registerPseudoWithArgument('test2', function(arg) {
             argument = arg;

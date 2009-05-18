@@ -27,91 +27,22 @@
 /**
  * Bouncer implements fast Selector without using "eval".
  * Specification : http://www.w3.org/TR/css3-selectors/
- * Patterns are imported from Prototype Javascript Framework.
+ * Patterns are imported matcherFrom Prototype Javascript Framework.
  * Credits to Diego Perrini for original idea and comprehensive help.
+ *  
+ *  
 **/
 var Bouncer = (function() {
- 
-  var Selectors,
-      Combinators,
-      Pseudos,
-      Cache = { },
-      NotImplementedError = { };
   
-  function TrueFunction() {
-    return true;
-  }
-  
-  /** Matches an element against a stripped CSS expression. */
-  function match(element, expr) {
-    if (!(expr in Cache)) {
-      Cache[expr] = createMatcher(expr);
-    }
-    return Cache[expr](element);
-  }
-  
-  function createMatcher(expression) {
-    var part,
-        matcher,
-        group = [ ],
-        i = 0;
-    
-    Scanner.scan(expression, function(symbol, args) {
-      if (symbol === ",") return matcher = null, i++;
-      if (symbol in Selectors) {
-        part = Selectors[symbol].apply(null, args);
-        matcher = assembleParts(matcher, part);
-        group[i] = matcher;
-      } else {
-        matcher = Combinators[symbol](matcher);
-      }
-    });
-    
-    return matchersDisjunction(group);
-  }
-  
-  function assembleParts(matcher, part) {
-    if (!matcher) return part;
-    if (part === TrueFunction) return matcher;
-    return function(e) {
-      var result = part(e);
-      return result && matcher(result === true ? e : result);
+  function K(x) {
+    return function() {
+      return x;
     };
   }
   
-  function matchersDisjunction(matchers) {
-    return matchers.length === 1 ? matchers[0] : function(e) {
-      for (var i = 0, matcher; matcher = matchers[i]; i++) {
-        if (matcher(e)) return true;
-      }
-      return false;
-    };
-  }
-
-  function createCombinator(direction, follow) {
-    return function(matcher) {
-      return function(e) {
-        while ((e = e[direction])) {
-          if (e.nodeType === 1) {
-            if (matcher(e)) return e;
-            if (!follow)    break;
-          }
-        }
-        return false;
-      };
-    };
-  }
-  
-  function createPseudoWithArgument(generator) {
-    return {
-      hasArgument: TrueFunction,
-      getMatcher:  generator
-    };
-  }
-  
-  Selectors = {
+  var SELECTORS = {
     "*": function(tagName) {
-      if (tagName === "*") return TrueFunction;
+      if (tagName === "*") return K(true);
       tagName = tagName.toUpperCase();
       return function(e) {
         return e.tagName === tagName;
@@ -123,95 +54,151 @@ var Bouncer = (function() {
       };
     },
     ".": function(className) {
-      var pattern = new RegExp("(?:^|\\s)" + className + "(?:\\s|$)");
+      var pattern = new RegExp("(^|\\s)" + className + "(\\s|$)");
       return function(e) {
         return pattern.test(e.className);
       };
     },
-    "[": function(name, operator, arg) {
+    "[": function(name, operator, argument) {
       if (!operator) {
         return function(e) {
           return e.hasAttribute(name);
         };
       }
       switch(operator) {
-        case "~=": arg = " " + arg + " ";   break;
-        case "|=": arg = arg.toLowerCase(); break;
+        case "~=": argument = " " + argument + " ";   break;
+        case "|=": argument = argument.toLowerCase(); break;
       }
-      return function(e) {
-        if (!e.hasAttribute(name)) return false;
-        var v = e.getAttribute(name);
-        switch(operator) {
-          case "=":  return v === arg;
-          case "^=": return v.indexOf(arg) === 0;
-          case "*=": return v.indexOf(arg) !== -1;
-          case "~=": return (" " + v + " ").indexOf(arg) !== -1;
-          case "|=": return (v = v.toLowerCase()) === arg || v.indexOf(arg + "-") === 0;
-          case "$=":
-            var i = v.length - arg.length;
-            return i >= 0 && v.lastIndexOf(arg) === i;
-        }
-      };
+      return attributeMatcher(name, operator[0], argument);
     },
-    ":": function(name, arg) {
-      if (!(name in Pseudos)) throw NotImplementedError;
-      var matcher = Pseudos[name];
-      return matcher.hasArgument === TrueFunction ? matcher.getMatcher(arg) : matcher;
+    ":": function(name, argument) {
+      if (!(name in PSEUDOS)) {
+        throw "Unsupported pseudo : " + name;
+      }
+      return PSEUDOS[name](argument);
     }
   };
   
-  Combinators = {
-    "~": createCombinator("previousSibling", true),
-    "+": createCombinator("previousSibling", false),
-    ">": createCombinator("parentNode", false),
-    " ": createCombinator("parentNode", true)
+  var COMBINATORS = {
+    ">": { dir: "parentNode" },
+    " ": { dir: "parentNode", follow: true },
+    "+": { dir: "previousSibling" },
+    "~": { dir: "previousSibling", follow: true }
   };
   
-  Pseudos = {
-    // Read: “ "not" is a pseudo whose argument is an expression ”
-    "not": createPseudoWithArgument(function(expression) {
+  var PSEUDOS = {
+    "not": function(expression) {
       var matcher = createMatcher(expression);
       return function(e) {
         return !matcher(e);
       };
+    },
+    "first-child": K(function(e) {
+      while (e = e.previousSibling) if (e.nodeType === 1) return false;
+      return true;
     }),
-    "first-child": function(e) {
-      while ((e = e.previousSibling)) if (e.nodeType === 1) return false;
+    "last-child": K(function(e) {
+      while (e = e.nextSibling) if (e.nodeType === 1) return false;
       return true;
-    },
-    "last-child": function(e) {
-      while ((e = e.nextSibling)) if (e.nodeType === 1) return false;
-      return true;
-    },
-    "empty": function(e) {
+    }),
+    "empty": K(function(e) {
       return !e.firstChild;
-    },
-    "enabled": function(e) {
+    }),
+    "enabled": K(function(e) {
       return !e.disabled && e.type !== "hidden";
-    },
-    "disabled": function(e) {
+    }),
+    "disabled": K(function(e) {
       return e.disabled;
-    },
-    "checked": function(e) {
+    }),
+    "checked": K(function(e) {
       return e.checked;
-    }
+    })
   };
-
+  
+  function attributeMatcher(name, operator, arg) {
+    return function(e) {
+      if (!e.hasAttribute(name)) return false;
+      var v = e.getAttribute(name);
+      switch(operator) {
+        case "=": return v === arg;
+        case "^": return v.indexOf(arg) === 0;
+        case "*": return v.indexOf(arg) !== -1;
+        case "~": return (" " + v + " ").indexOf(arg) !== -1;
+        case "|": return (v = v.toLowerCase()) === arg || v.indexOf(arg + "-") === 0;
+        case "$": return v.length - arg.length >= 0 && v.lastIndexOf(arg) === v.length - arg.length;
+      }
+    };
+  }
+  
+  function match(element, expression) {
+    return createMatcher(expression)(element);
+  }
+  
+  function registerPseudo(name, matcher) {
+    PSEUDOS[name] = K(matcher);
+  }
+  
+  function registerPseudoWithArgument(name, matcherReturning) {
+    PSEUDOS[name] = matcherReturning;
+  }
+  
+  function createMatcher(expression) {
+    var group = CSSTokenizer.tokenize(expression);
+    for (var i = 0, tokens; tokens = group[i]; i++) {
+      group[i] = matcherFromTokens(tokens);
+    }
+    return matcherFromGroupMatchers(group);
+  }
+  
+  function matcherFromGroupMatchers(matchers) {
+    if (!matchers.length) return matchers[0];
+    return function(e) {
+      for (var i = 0, matcher; matcher = matchers[i++];) {
+        if (matcher(e)) return true;
+      }
+      return false;
+    };
+  }
+  
+  function matcherFromTokens(tokens) { // ["a", ">", "b", "+", "c"]
+    var matcher, combinator
+    for (var i = 0, token; token = tokens[i++];) {
+      if (token.symbol in COMBINATORS) {
+        matcher = addCombinator(matcher, token.symbol);
+      } else {
+        matcher = addMatcher(matcher, matcherFromToken(token));
+      }
+    }
+    return matcher || K(true);
+  }
+  
+  function addCombinator(matcher, symbol) {
+    var combinator = COMBINATORS[symbol];
+    return function(e) {
+      while (e = e[combinator.dir]) {
+        if (e.nodeType === 1) {
+          if (matcher(e)) return e;
+          if (!combinator.follow) break;
+        }
+      }
+    };
+  }
+  
+  function addMatcher(higher, lower) {
+    if (!higher) return lower;
+    return function(e) {
+      var context = lower(e);
+      return context && higher(context === true ? e : context);
+    };
+  }
+  
+  function matcherFromToken(token) {
+    return SELECTORS[token.symbol].apply(null, token.captures);
+  }
+  
   return {
     match: match,
-
-    registerPseudo: function(name, matcher) {
-      Pseudos[name] = matcher;
-    },
-
-    registerPseudoWithArgument: function(name, generator) {
-      Pseudos[name] = createPseudoWithArgument(generator);
-    },
-    
-    clearCache: function() {
-      Cache = { };
-    },
-    
-    NotImplementedError: NotImplementedError
+    registerPseudo: registerPseudo,
+    registerPseudoWithArgument: registerPseudoWithArgument
   };
 })();
