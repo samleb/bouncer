@@ -1,5 +1,5 @@
 /**
- *  Bouncer v0.1a
+ *  Bouncer v0.1.0
  *  Copyright (c) 2008 Samuel Lebeau, Xilinus
  *
  * Permission is hereby granted, free of charge, to any person
@@ -25,12 +25,22 @@
 **/
 
 /**
- * Bouncer implements fast Selector without using "eval".
- * Specification : http://www.w3.org/TR/css3-selectors/
- * Patterns are imported matcherFrom Prototype Javascript Framework.
- * Credits to Diego Perrini for original idea and comprehensive help.
+ *  Bouncer create matchers against CSS expressions, which are `element → boolean`
+ *  functions. Used in the context of event delegation, it will help determining quickly 
+ *  whether or not an element is concerned by a given rule and keep your party
+ *  smooth.
  *  
+ *  Bouncer matchers work bottom-up, which means the rule `.product a.delete`
+ *  will yield a function that starts by testing if its argument is an anchor 
+ *  with the `delete` class and then tries to find an ancestor with the `product` class.
  *  
+ *  Assembling matchers function takes some time, so you might want to cache and 
+ *  reuse them instead of calling `match`, or `createMatcher` several times with the same
+ *  expression.
+ *  
+ *  Cache feature is not excluded in the future.
+ *  Fixing DOM implementation related bugs is excluded as Bouncer will delegate
+ *  this responsability to adapters for external frameworks or libraries.
 **/
 var Bouncer = (function() {
   
@@ -72,17 +82,18 @@ var Bouncer = (function() {
       return attributeMatcher(name, operator[0], argument);
     },
     ":": function(name, argument) {
-      if (!(name in PSEUDOS)) {
-        throw "Unsupported pseudo : " + name;
-      }
+      if (!(name in PSEUDOS)) throw {
+        name: "BouncerError",
+        message: "Unsupported pseudo: \"" + name + "\""
+      };
       return PSEUDOS[name](argument);
     }
   };
   
   var COMBINATORS = {
-    ">": { dir: "parentNode" },
-    " ": { dir: "parentNode", follow: true },
-    "+": { dir: "previousSibling" },
+    ">": { dir: "parentNode"                    },
+    " ": { dir: "parentNode",      follow: true },
+    "+": { dir: "previousSibling"               },
     "~": { dir: "previousSibling", follow: true }
   };
   
@@ -134,20 +145,20 @@ var Bouncer = (function() {
     return createMatcher(expression)(element);
   }
   
+  function createMatcher(expression) {
+    var group = Bouncer.Tokenizer.tokenize(expression);
+    for (var i = 0, tokens; tokens = group[i]; i++) {
+      group[i] = matcherFromTokens(tokens);
+    }
+    return matcherFromGroupMatchers(group);
+  }
+  
   function registerPseudo(name, matcher) {
     PSEUDOS[name] = K(matcher);
   }
   
   function registerPseudoWithArgument(name, matcherReturning) {
     PSEUDOS[name] = matcherReturning;
-  }
-  
-  function createMatcher(expression) {
-    var group = CSSTokenizer.tokenize(expression);
-    for (var i = 0, tokens; tokens = group[i]; i++) {
-      group[i] = matcherFromTokens(tokens);
-    }
-    return matcherFromGroupMatchers(group);
   }
   
   function matcherFromGroupMatchers(matchers) {
@@ -161,7 +172,7 @@ var Bouncer = (function() {
   }
   
   function matcherFromTokens(tokens) { // ["a", ">", "b", "+", "c"]
-    var matcher, combinator
+    var matcher, combinator;
     for (var i = 0, token; token = tokens[i++];) {
       if (token.symbol in COMBINATORS) {
         matcher = addCombinator(matcher, token.symbol);
@@ -184,10 +195,10 @@ var Bouncer = (function() {
     };
   }
   
-  function addMatcher(higher, lower) {
-    if (!higher) return lower;
+  function addMatcher(higher, deeper) {
+    if (!higher) return deeper;
     return function(e) {
-      var context = lower(e);
+      var context = deeper(e);
       return context && higher(context === true ? e : context);
     };
   }
@@ -197,8 +208,70 @@ var Bouncer = (function() {
   }
   
   return {
-    match: match,
-    registerPseudo: registerPseudo,
+    createMatcher:              createMatcher,
+    match:                      match,
+    registerPseudo:             registerPseudo,
     registerPseudoWithArgument: registerPseudoWithArgument
+  };
+})();
+
+Bouncer.Tokenizer = (function() {
+  // Patterns borrowed from Prototype Javascript Framework.
+  var COMA        = /^\s*,\s*/,
+      COMBINATORS = /^\s*([\s\>\~\+])\s*/,
+      TAG_NAMES   = /^(\*|[\w\-]+)/;
+  
+  var ATOMS = {
+    "#": /^#([\w\-\*]+)(?:\b|$)/,
+    ".": /^\.([\w\-\*]+)(?:\b|$)/,
+    "[": /^\[((?:[\w-]*:)?[\w-]+)\s*(?:([!^$*~|]=|=)\s*(?:(['"])([^\3]*?)\3|([^'"][^\]]*?)))?\]/,
+    ":": /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/
+  };
+  
+  var expr, match, chr, token, group, tokens;
+
+  function advance(pattern) {
+    if ((match = expr.match(pattern))) {
+      expr = expr.slice(match[0].length);
+    }
+    return match;
+  }
+
+  function found(symbol) {
+    tokens.push({ 
+      symbol: symbol,
+      string: match.shift(),
+      captures: match
+    });
+  }
+  
+  function handleAttributeQuotes(match) {
+    // if quotes are present, value is in match[4].
+    if (match[3]) match[5] = match[4];
+    match.splice(3, 2); // -> [string, name, operator, value]
+  }
+
+  function tokenize(expression) {
+    expr = expression, group = [[]], tokens = group[0];
+    while (expr) {
+      if (tokens.length) {
+        if (advance(COMA)) group.push(tokens = []);
+        if (advance(COMBINATORS)) found(match.pop());
+      }
+      if ((chr = expr[0]) in ATOMS && advance(ATOMS[chr])) {
+        if (chr === "[") handleAttributeQuotes(match);
+        found(chr);
+      }
+      else if (advance(TAG_NAMES)) found("*");
+      else throw {
+        name: "BouncerTokenizerError",
+        message: "Error while parsing: \"" + expression + "\""
+      };
+    }
+    return group;
+  }
+
+  return {
+    tokenize:  tokenize
   };
 })();

@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+  "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Bouncer Unit test file</title>
+    <link rel="stylesheet" href="test.css" type="text/css" media="screen" charset="utf-8">
+    <script src="../src/bouncer.js" type="text/javascript" charset="utf-8"></script>
+    <script src="prototype.js" type="text/javascript" charset="utf-8"></script>
+    <script src="unittest.js" type="text/javascript" charset="utf-8"></script>
+  </head>
+  <body>
+    <h1>Bouncer Unit test file</h1>
+    <div id="testlog"></div>
+    
+    <script type="text/javascript" charset="utf-8">
+      var tokenize = Bouncer.Tokenizer.tokenize;
+    
+      var TokenizerAssertions = {
+        assertTokenize: function(expression, expectedSymbol, expectedCaptures) {
+          var tokens = tokenize(expression)[0];
+          var token = tokens[0];
+          this.assert(!!token);
+          this.assertEqual(expression, token.string);
+          this.assertEqual(expectedSymbol, token.symbol)
+          this.assertEnumEqual(expectedCaptures, token.captures);
+        }
+      };
+    
+      Test.Unit.Testcase.addMethods(TokenizerAssertions);
+    
+      new Test.Unit.Runner({
+        testTagName: function() {
+          this.assertTokenize("body", "*", ["body"]);
+          this.assertTokenize("*", "*", ["*"]);
+        },
+        testId: function() {
+          this.assertTokenize("#test-id", "#", ["test-id"]);
+        },
+        testClass: function() {
+          this.assertTokenize(".test-class", ".", ["test-class"]);
+        },
+        testPseudo: function() {
+          this.assertTokenize(":selected", ":", ["selected", null]);
+          this.assertTokenize(":not(expression[with='attributes'])", ":", ["not", "expression[with='attributes']"]);
+        },
+        testAttributePresence: function() {
+          this.assertTokenize("[name]",    "[", ["name", null, null]);
+          this.assertTokenize("[ns:name]", "[", ["ns:name", null, null]);
+        },
+        testAttributeOperators: function() {
+          this.assertTokenize("[name=value]",    "[", ["name", "=", "value"]);
+          this.assertTokenize("[name^=value]",   "[", ["name", "^=", "value"]);
+          this.assertTokenize("[name$=value]",   "[", ["name", "$=", "value"]);
+          this.assertTokenize("[name*=value]",   "[", ["name", "*=", "value"]);
+          this.assertTokenize("[name|=value]",   "[", ["name", "|=", "value"]);
+          this.assertTokenize("[ns:name=value]", "[", ["ns:name", "=", "value"]);
+        },
+        testAttributeWithQuotes: function() {
+          this.assertTokenize("[name='value']", "[", ["name", "=", "value"]);
+          this.assertTokenize('[name="value"]', "[", ["name", "=", "value"]);
+        },
+        testCombinator: function() {
+          var tokens = tokenize("* * > * + * ~ *")[0];
+          this.assertEnumEqual([" ", ">", "+", "~"], tokens.pluck("symbol").without("*"));
+        },
+        testGroup: function() {
+          var group = tokenize("*, * *  ,*");
+          var symbols = group.collect(function(tokens) {
+            return tokens.pluck("symbol");
+          });
+          this.assertEqual(3, group.length);
+          this.assertEnumEqual(["*"],           group[0].pluck("symbol"));
+          this.assertEnumEqual(["*", " ", "*"], group[1].pluck("symbol"));
+          this.assertEnumEqual(["*"],           group[2].pluck("symbol"));
+        },
+        testError: function() {
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("!") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("<") });
+        }
+      });
+    </script>
+  </body>
+</html>
