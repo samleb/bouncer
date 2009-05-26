@@ -130,7 +130,7 @@ var Bouncer = (function() {
     return function(e) {
       if (!e.hasAttribute(name)) return false;
       var v = e.getAttribute(name);
-      switch(operator) {
+      switch (operator) {
         case "=": return v === arg;
         case "^": return v.indexOf(arg) === 0;
         case "*": return v.indexOf(arg) !== -1;
@@ -172,24 +172,24 @@ var Bouncer = (function() {
   }
   
   function matcherFromTokens(tokens) { // ["a", ">", "b", "+", "c"]
-    var matcher, combinator;
+    var matcher;
     for (var i = 0, token; token = tokens[i++];) {
       if (token.symbol in COMBINATORS) {
-        matcher = addCombinator(matcher, token.symbol);
+        matcher = addCombinator(matcher, COMBINATORS[token.symbol]);
       } else {
         matcher = addMatcher(matcher, matcherFromToken(token));
       }
     }
-    return matcher || K(true);
+    return matcher;
   }
   
-  function addCombinator(matcher, symbol) {
-    var combinator = COMBINATORS[symbol];
+  function addCombinator(matcher, combinator) {
+    var direction = combinator.dir, follow = combinator.follow;
     return function(e) {
-      while (e = e[combinator.dir]) {
+      while (e = e[direction]) {
         if (e.nodeType === 1) {
           if (matcher(e)) return e;
-          if (!combinator.follow) break;
+          if (!follow) break;
         }
       }
     };
@@ -228,7 +228,7 @@ Bouncer.Tokenizer = (function() {
     ":": /^:(\w[\w-]*)(?:\((.*?)\))?(?:\b|$|(?=\s|[:+~>]))/
   };
   
-  var expr, match, chr, token, group, tokens;
+  var expr, match, tokens;
 
   function advance(pattern) {
     if ((match = expr.match(pattern))) {
@@ -239,27 +239,28 @@ Bouncer.Tokenizer = (function() {
 
   function found(symbol) {
     tokens.push({ 
-      symbol: symbol,
-      string: match.shift(),
+      symbol:   symbol,
+      string:   match.shift(),
       captures: match
     });
   }
   
-  function handleAttributeQuotes(match) {
+  function handleAttributeQuotes() {
     // if quotes are present, value is in match[4].
     if (match[3]) match[5] = match[4];
     match.splice(3, 2); // -> [string, name, operator, value]
   }
 
   function tokenize(expression) {
-    expr = expression, group = [[]], tokens = group[0];
+    var chr, group = [[]];
+    expr = expression, tokens = group[0];
     while (expr) {
       if (tokens.length) {
         if (advance(COMA)) group.push(tokens = []);
         if (advance(COMBINATORS)) found(match.pop());
       }
       if ((chr = expr[0]) in ATOMS && advance(ATOMS[chr])) {
-        if (chr === "[") handleAttributeQuotes(match);
+        if (chr === "[") handleAttributeQuotes();
         found(chr);
       }
       else if (advance(TAG_NAMES)) found("*");
