@@ -1,0 +1,18 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    execjs (2.0.2)
+    json (1.8.1)
+    rake (10.1.0)
+    sprockets (1.0.0)
+    uglifier (2.3.1)
+      execjs (>= 0.3.0)
+      json (>= 1.8.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  rake
+  sprockets (= 1.0.0)
+  uglifier

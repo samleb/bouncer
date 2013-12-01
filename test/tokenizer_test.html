@@ -3,25 +3,25 @@
 <html>
   <head>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8">
-    <title>Bouncer Unit test file</title>
-    <link rel="stylesheet" href="test.css" type="text/css" media="screen" charset="utf-8">
-    <script src="../src/bouncer.js" type="text/javascript" charset="utf-8"></script>
-    <script src="prototype.js" type="text/javascript" charset="utf-8"></script>
-    <script src="unittest.js" type="text/javascript" charset="utf-8"></script>
+    <title>Tokenizer - Bouncer Unit test file</title>
+    <link rel="stylesheet" href="support/unittest.css" type="text/css" media="screen" charset="utf-8">
+    <script src="../src/tokenizer.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="support/prototype.js" type="text/javascript" charset="utf-8"></script>
+    <script src="support/unittest.js" type="text/javascript" charset="utf-8"></script>
   </head>
   <body>
-    <h1>Bouncer Unit test file</h1>
+    <h1>Tokenizer - Bouncer Unit test file</h1>
     <div id="testlog"></div>
     
     <script type="text/javascript" charset="utf-8">
-      var tokenize = Bouncer.Tokenizer.tokenize;
+      var tokenize = Tokenizer.tokenize;
     
       var TokenizerAssertions = {
         assertTokenize: function(expression, expectedSymbol, expectedCaptures) {
           var tokens = tokenize(expression)[0];
           var token = tokens[0];
           this.assert(!!token);
-          this.assertEqual(expression, token.string);
+          this.assertEqual(expression, token.lexeme);
           this.assertEqual(expectedSymbol, token.symbol)
           this.assertEnumEqual(expectedCaptures, token.captures);
         }
@@ -75,8 +75,13 @@
           this.assertEnumEqual(["*"],           group[2].pluck("symbol"));
         },
         testError: function() {
-          this.assertRaise("BouncerTokenizerError", function() { tokenize("!") });
-          this.assertRaise("BouncerTokenizerError", function() { tokenize("<") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize(">") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("a < b") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("a ! b") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize(",") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("a[href") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("a:") });
+          this.assertRaise("BouncerTokenizerError", function() { tokenize("a > > b") });
         }
       });
     </script>

@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+  "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Selector - Bouncer Unit test file</title>
+    <link rel="stylesheet" href="support/unittest.css" type="text/css" media="screen" charset="utf-8">
+    <script src="../dist/bouncer.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="support/prototype.js" type="text/javascript" charset="utf-8"></script>
+    <script src="support/unittest.js" type="text/javascript" charset="utf-8"></script>
+    <script type="text/javascript" charset="utf-8">
+      function select(expression, context) {
+        var selector = Bouncer.createSelector(expression);
+        return selector($(context || document));
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Selectors - Bouncer Unit test file</h1>
+    <!-- Log output start -->
+    <div id="testlog"></div>
+    <!-- Log output end -->
+    
+    <!-- HTML Fixtures start -->
+    <div id="fixtures">
+      <a href="#" id="link" title="">A link</a>
+      <a href="http://www.w3.org" id="link_2" title="W3C - The World Wide Web Consortium">Another link</a>
+      <p id="paragraph" xml:lang="en-US">
+        Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor 
+        incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
+        exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute 
+        irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla 
+        pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia 
+        deserunt mollit anim id est laborum.
+      </p>
+      <!-- Some comment -->
+      <ul id="list">
+        <li id="entry_1" class="odd first">A then</li>
+        <li id="entry_2" class="even">B or</li>
+        <li id="entry_3" class="odd">
+          <ul id="list_2">
+            <li id="entry_4" class="odd first">A then</li>
+            <li id="entry_5" class="even">B or</li>
+            <li id="entry_6" class="odd">C</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+    <!-- HTML Fixtures end -->
+    <script type="text/javascript" charset="utf-8">
+      new Test.Unit.Runner({
+        testContext: function() {
+          this.assertEnumEqual($("entry_4", "entry_5", "entry_6"), select("*", "list_2"));
+          this.assertIdentical($("entry_4"), select("ul > li", "list_2")[0]);
+        },
+        testTagNameSelectors: function() {
+          this.assertEnumEqual([document.body], select("body"));
+        },
+        testClassNameSelectors: function() {
+          this.assertEnumEqual($("entry_1", "entry_3", "entry_4", "entry_6"), select(".odd"));
+        },
+        testAttributeSelectors: function() {
+          var oddEntries = $("entry_1", "entry_3", "entry_4", "entry_6"),
+              evenEntries = $("entry_2", "entry_5");
+          this.assertEnumEqual(evenEntries, select("li[class=even]"));
+          this.assertEnumEqual(oddEntries, select("li[class~=odd]"));
+          this.assertEnumEqual(oddEntries, select("li[class!=even]", "list"));
+          this.assertEnumEqual($("link"), select("[title^='']")[0]);
+        },
+        testComplexSelectors: function() {
+          this.assertEqual(6, select("#list li").length);
+          this.assertEqual(3, select("#list > li").length);
+          this.assertEnumEqual([$("list")], select("#paragraph + ul"));
+          this.assertEnumEqual([$("list")], select("#paragraph ~ ul"));
+        },
+        testGroup: function() {
+          this.assertEnumEqual($("testlog", "fixtures"), select("#testlog, #fixtures"));
+          this.assertEnumEqual($("testlog", "fixtures"), select("#fixtures, #testlog"), "multiple selectors results aren't document ordered");
+        },
+        testDescendant: function() {
+          var entries = $R(1, 6).collect(function(n) {
+            return $("entry_" + n);
+          })
+          this.assertEnumEqual(entries, select("ul li"));
+          this.assertEnumEqual(entries.slice(3), select("ul ul li"));
+        },
+        testNextSibling: function() {
+          this.assertEnumEqual([$("entry_5")], select("#entry_4 + li"));
+        },
+        testLaterSibling: function() {
+          this.assertEnumEqual($("entry_5", "entry_6"), select("#entry_4 ~ li"));
+        }
+      });
+    </script>
+  </body>
+</html>
