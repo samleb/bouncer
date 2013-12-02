@@ -1,13 +1,14 @@
 /*! Bouncer v0.2.0-alpha, Copyright (c) 2008-2012 Samuel Lebeau */
-(function(GLOBAL, document) {
+(function(GLOBAL, document, undefined) {
   "use strict";
   
   var Bouncer = { };
   
   var SELECTORS_CACHE = { },
+      UNIQUE_ID = 0,
       A_ELEMENT = document.createElement("a"),
       UPPERCASE_TAG_NAMES = A_ELEMENT.tagName === "A",
-      UNIQUE_ID = 0;
+      HAS_GET_ELEMENTS_BY_CLASS_NAME = A_ELEMENT.getElementsByClassName;
   
   //= require "helpers"
   //= require "tokenizer"

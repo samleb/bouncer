@@ -26,7 +26,7 @@ function createAttributeFilter(name, operator, arg) {
   }
   
   return <% filter_function :attribute, :condition_variable => "c", :variables => "val" do %>
-    if ((val = element.getAttribute(name)) != null) {
+    if ((val = element.getAttribute(name)) != undefined) {
       switch (operator) {
         case "=": c = val === arg; break;
         case "!": c = val !== arg; break; // Convenient addition, "[a!=b]" := ":not([a=b])"
@@ -45,7 +45,7 @@ function createAttributePresenceFilter(name) {
 }
 
 function createPseudoFilter(name, argument) {
-  if (argument != null) {
+  if (argument != undefined) {
     if (name in PSEUDO_FILTERS_WITH_ARGUMENTS) {
       return PSEUDO_FILTERS_WITH_ARGUMENTS[name](argument);
     }

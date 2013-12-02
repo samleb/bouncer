@@ -1,3 +1,7 @@
+var onlyChildPseudoFilter = A_ELEMENT.childElementCount === 0 ? 
+  onlyChild_usingChildElementCount_PseudoFilter :
+  onlyChild_composingFirstAndLastChildFilters_PseudoFilter;
+
 <% filter_function :firstChildPseudo, :variables => 'sibling' do %>
   condition = true;
   sibling = element;
@@ -20,10 +24,11 @@
   }
 <% end %>
 
-function onlyChildPseudoFilter(elements) {
+function onlyChild_composingFirstAndLastChildFilters_PseudoFilter(elements) {
   return lastChildPseudoFilter(firstChildPseudoFilter(elements));
 }
 
+<% filter_function :onlyChild_usingChildElementCount_Pseudo, "element.parentNode.childElementCount === 1" %>
 <% filter_function :emptyPseudo, '!element.firstChild' %>
 <% filter_function :enabledPseudo, '!element.disabled && element.type !== "hidden"' %>
 <% filter_function :disabledPseudo, 'element.disabled' %>

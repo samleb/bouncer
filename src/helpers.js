@@ -4,18 +4,12 @@ function IDENTITY(x) {
 
 function indexOf(array, element) {
   var i = array.length;
-  // As we're only manipulating duplicate-free arrays here, reverse looping is OK.
   while (i--) {
     if (array[i] === element) return i;
   }
-  return -1;
 }
 
-function toArray(list) {
-  var result = [], i = list.length;
-  while (i--) result[i] = list[i];
-  return result;
-}
+var _slice = [].slice;
 
 function map(array, callback) {
   for (var i = 0, l = array.length; i < l; i++)
@@ -23,43 +17,52 @@ function map(array, callback) {
   return array;
 }
 
+function composeFunctions(functions) {
+  return function(x) {
+    for (var i = 0, l = functions.length; i < l; i++) {
+      x = functions[i](x)
+    }
+    return x;
+  };
+}
+
 function createSpaceSeparatedWordRegExp(word) {
   return new RegExp("(^|\\s)" + word + "(\\s|$)");
 }
 
-function interpolate(expression, values) {
-  return expression.replace(/\$(\d+)/g, function(_, index) {
-    return values[index];
-  });
-}
+// function isDescendantOf_usingContains(element, presumedAncestor) {
+//   return presumedAncestor.contains(element);
+// }
+// 
+// function isDescendantOf_usingCompareDocumentPosition(element, presumedAncestor) {
+//   return element.compareDocumentPosition(presumedAncestor) & Node.DOCUMENT_POSITION_CONTAINS;
+// }
+// 
+// function isDescendantOf_followingParentNodes(element, presumedAncestor) {
+//   while (element = element.parentNode) {
+//     if (element === presumedAncestor) return true;
+//   }
+//   return false;
+// }
+// 
+// var isDescendantOf;
+// 
+// if (A_ELEMENT.contains) {
+//   isDescendantOf = isDescendantOf_usingContains;
+// } else if (A_ELEMENT.compareDocumentPosition) {
+//   isDescendantOf = isDescendantOf_usingCompareDocumentPosition;
+// } else {
+//   isDescendantOf = isDescendantOf_followingParentNodes;
+// }
 
-function escapeSingleQuotes(string) {
-  return string && string.replace(/'/g, "\\'");
-}
+var comparePosition;
 
-function isDescendantOf_usingContains(element, presumedAncestor) {
-  return presumedAncestor.contains(element);
-}
-
-function isDescendantOf_usingCompareDocumentPosition(element, presumedAncestor) {
-  return element.compareDocumentPosition(presumedAncestor) & Node.DOCUMENT_POSITION_CONTAINS;
-}
-
-function isDescendantOf_followingParentNodes(element, presumedAncestor) {
-  while (element = element.parentNode) {
-    if (element === presumedAncestor) return true;
-  }
-  return false;
-}
-
-var isDescendantOf;
-
-if (A_ELEMENT.contains) {
-  isDescendantOf = isDescendantOf_usingContains;
+if (A_ELEMENT.sourceIndex === -1) {
+  comparePosition = comparePosition_usingSourceIndex;
 } else if (A_ELEMENT.compareDocumentPosition) {
-  isDescendantOf = isDescendantOf_usingCompareDocumentPosition;
+  comparePosition = comparePosition_usingCompareDocumentPosition;
 } else {
-  isDescendantOf = isDescendantOf_followingParentNodes;
+  comparePosition = comparePosition_usingMagic
 }
 
 function comparePosition_usingSourceIndex(a, b) {
@@ -70,10 +73,6 @@ function comparePosition_usingCompareDocumentPosition(a, b) {
   return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
 }
 
-var comparePosition;
-
-if (A_ELEMENT.sourceIndex) {
-  comparePosition = comparePosition_usingSourceIndex;
-} else if (A_ELEMENT.compareDocumentPosition) {
-  comparePosition = comparePosition_usingCompareDocumentPosition;
+function comparePosition_usingMagic() {
+  return 1;
 }

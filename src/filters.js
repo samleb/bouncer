@@ -38,7 +38,7 @@ function createFilterFromTokens(tokens) {
 }
 
 function createFilterFromToken(token) {
-  return FILTERS[token.symbol].apply(null, token.captures);
+  return FILTERS[token.symbol].apply(undefined, token.captures);
 }
 
 var FILTERS = {

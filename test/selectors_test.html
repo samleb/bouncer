@@ -5,7 +5,7 @@
     <meta http-equiv="Content-type" content="text/html; charset=utf-8">
     <title>Selector - Bouncer Unit test file</title>
     <link rel="stylesheet" href="support/unittest.css" type="text/css" media="screen" charset="utf-8">
-    <script src="../dist/bouncer.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../dist/bouncer.js" type="text/javascript" charset="utf-8"></script>
     <script src="support/prototype.js" type="text/javascript" charset="utf-8"></script>
     <script src="support/unittest.js" type="text/javascript" charset="utf-8"></script>
     <script type="text/javascript" charset="utf-8">
@@ -22,11 +22,11 @@
     <!-- Log output end -->
     
     <!-- HTML Fixtures start -->
-    <div id="fixtures">
-      <a href="#" id="link" title="">A link</a>
+    <div id="fixtures" class="fixtures">
+      <a href="#" id="link" title="A link">A link</a>
       <a href="http://www.w3.org" id="link_2" title="W3C - The World Wide Web Consortium">Another link</a>
       <p id="paragraph" xml:lang="en-US">
-        Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor 
+        <a id="link_3" href="#">Lorem ipsum</a> dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor 
         incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
         exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute 
         irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla 
@@ -48,30 +48,42 @@
     </div>
     <!-- HTML Fixtures end -->
     <script type="text/javascript" charset="utf-8">
+      var SelectorAssertions = {
+        assertSelect: function(expectedElements, expression, context) {
+          var actualElements = Bouncer.getElementsBySelector(expression , context);
+          this.assertInstanceOf(Array, actualElements, "Result must be an array");
+          this.assertEnumEqual([expectedElements].flatten(), $(actualElements));
+        }
+      };
+      
+      Test.Unit.Testcase.addMethods(SelectorAssertions);
+      
       new Test.Unit.Runner({
         testContext: function() {
-          this.assertEnumEqual($("entry_4", "entry_5", "entry_6"), select("*", "list_2"));
-          this.assertIdentical($("entry_4"), select("ul > li", "list_2")[0]);
+          this.assertSelect($("entry_4", "entry_5", "entry_6"), "*", $("list_2"));
+          this.assertSelect($("entry_4"), "ul > li:first-child", $("list_2"));
         },
         testTagNameSelectors: function() {
-          this.assertEnumEqual([document.body], select("body"));
+          this.assertSelect(document.body, "body");
         },
         testClassNameSelectors: function() {
-          this.assertEnumEqual($("entry_1", "entry_3", "entry_4", "entry_6"), select(".odd"));
+          this.assertSelect($("entry_1", "entry_3", "entry_4", "entry_6"), ".odd");
         },
         testAttributeSelectors: function() {
           var oddEntries = $("entry_1", "entry_3", "entry_4", "entry_6"),
               evenEntries = $("entry_2", "entry_5");
-          this.assertEnumEqual(evenEntries, select("li[class=even]"));
-          this.assertEnumEqual(oddEntries, select("li[class~=odd]"));
-          this.assertEnumEqual(oddEntries, select("li[class!=even]", "list"));
-          this.assertEnumEqual($("link"), select("[title^='']")[0]);
+          this.assertSelect(evenEntries, "li[class=even]");
+          this.assertSelect(oddEntries, "li[class~=odd]");
+          this.assertSelect(oddEntries, "li[class!=even]", $("list"));
+          this.assertSelect($("link"), "[title^='A']");
         },
         testComplexSelectors: function() {
           this.assertEqual(6, select("#list li").length);
           this.assertEqual(3, select("#list > li").length);
           this.assertEnumEqual([$("list")], select("#paragraph + ul"));
           this.assertEnumEqual([$("list")], select("#paragraph ~ ul"));
+          this.assertEnumEqual([$("link_3")], select("#fixtures > p a"))
+          this.assertEnumEqual([$("link_3")], select("#paragraph > a"))
         },
         testGroup: function() {
           this.assertEnumEqual($("testlog", "fixtures"), select("#testlog, #fixtures"));
@@ -84,11 +96,20 @@
           this.assertEnumEqual(entries, select("ul li"));
           this.assertEnumEqual(entries.slice(3), select("ul ul li"));
         },
+        testChild: function() {
+          this.assertEqual(1, select("#fixtures > p").length);
+        },
         testNextSibling: function() {
           this.assertEnumEqual([$("entry_5")], select("#entry_4 + li"));
         },
         testLaterSibling: function() {
           this.assertEnumEqual($("entry_5", "entry_6"), select("#entry_4 ~ li"));
+        },
+        testOnlyChildPseudoSelector: function() {
+          this.assertEnumEqual([$("link_3")], select('#link_3:only-child'));
+        },
+        testNotPseudo: function (){
+          this.assertSelect($("entry_2", "entry_5"), "li:not(.odd)")
         }
       });
     </script>

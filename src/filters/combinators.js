@@ -20,7 +20,7 @@ function createCombinatorFactory(direction, follow) {
           result.push(element);
         }
       }
-
+      
       return result;
     };
   };
