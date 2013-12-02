@@ -7,8 +7,6 @@
   var SELECTORS_CACHE = { },
       A_ELEMENT = document.createElement("a"),
       UPPERCASE_TAG_NAMES = A_ELEMENT.tagName === "A",
-      // X_PATH_SUPPORTED = !!document.evaluate,
-      // SELECTORS_API_SUPPORTED = !!A_ELEMENT.querySelectorAll,
       UNIQUE_ID = 0;
   
   //= require "helpers"
