@@ -85,6 +85,10 @@ module Bouncer
     def initialize(input)
       super(input, nil, nil, "@buffer")
     end
+    
+    def append_git_hash
+      self << `git rev-parse HEAD`.chop!
+    end
   
     def <<(string)
       @buffer << string
@@ -96,7 +100,7 @@ module Bouncer
   end
 end
 
-if __FILE__ == $0
+if __FILE__ == $PROGRAM_NAME
   print Bouncer::Preprocessor.new(DATA.read).result
 end
 

@@ -1,4 +1,4 @@
-/*! Bouncer v0.2.0-alpha, Copyright (c) 2008-2012 Samuel Lebeau */
+/*! Bouncer v0.2.0-alpha+<% append_git_hash %>, Copyright (c) 2008-2012 Samuel Lebeau */
 (function(GLOBAL, document, undefined) {
   "use strict";
   
