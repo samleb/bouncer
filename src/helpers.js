@@ -18,6 +18,7 @@ function map(array, callback) {
 }
 
 function composeFunctions(functions) {
+  if (functions.length === 1) return functions[0];
   return function(x) {
     for (var i = 0, l = functions.length; i < l; i++) {
       x = functions[i](x)
