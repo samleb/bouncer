@@ -1,4 +1,4 @@
-/*! Bouncer v0.2.0-alpha, Copyright (c) 2008-2012 Samuel Lebeau */
+/*! Bouncer v0.2.0-alpha+5c01586428375d09832eb7237715892e1e57f0e7, Copyright (c) 2008-2013 Samuel Lebeau */
 (function(GLOBAL, document, undefined) {
   "use strict";
 
@@ -30,6 +30,7 @@ function map(array, callback) {
 }
 
 function composeFunctions(functions) {
+  if (functions.length === 1) return functions[0];
   return function(x) {
     for (var i = 0, l = functions.length; i < l; i++) {
       x = functions[i](x)
