@@ -3,7 +3,7 @@ GEM
   specs:
     execjs (2.0.2)
     json (1.8.1)
-    rake (10.1.0)
+    rake (12.3.3)
     sprockets (1.0.0)
     uglifier (2.3.1)
       execjs (>= 0.3.0)
